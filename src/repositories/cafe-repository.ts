@@ -28,3 +28,12 @@ export async function deleteCafe(cafeId: string) {
   await dbConnect();
   await Cafe.deleteOne({ _id: cafeId });
 }
+
+export async function findCafeById(cafeId: string) {
+  await dbConnect();
+  const doc = await Cafe.findOne({ _id: cafeId, deletedAt: null })
+    .select("status")
+    .lean() as { _id: unknown; status?: string } | null;
+  if (!doc) return null;
+  return { status: (doc.status ?? "pending") as "pending" | "active" | "suspended" | "rejected" };
+}
