@@ -11,8 +11,6 @@ import {
   updateAdminSupplierStatus,
   updateAdminSupplierVerification,
   SupplierNotFoundError,
-  SupplierStatusUpdateFailedError,
-  SupplierVerificationUpdateFailedError,
 } from "@/src/services/admin-supplier-service";
 
 export type AdminSupplierActionState = {
@@ -48,9 +46,6 @@ export async function updateSupplierStatusAction(
   } catch (error) {
     if (error instanceof SupplierNotFoundError) {
       return { error: "تأمین‌کننده یافت نشد" };
-    }
-    if (error instanceof SupplierStatusUpdateFailedError) {
-      return { error: "تغییر وضعیت انجام نشد؛ لطفاً دوباره تلاش کنید" };
     }
     return { error: "خطای غیرمنتظره؛ لطفاً دوباره تلاش کنید" };
   }
@@ -92,9 +87,6 @@ export async function updateSupplierVerificationAction(
   } catch (error) {
     if (error instanceof SupplierNotFoundError) {
       return { error: "تأمین‌کننده یافت نشد" };
-    }
-    if (error instanceof SupplierVerificationUpdateFailedError) {
-      return { error: "تغییر وضعیت تأیید انجام نشد؛ لطفاً دوباره تلاش کنید" };
     }
     return { error: "خطای غیرمنتظره؛ لطفاً دوباره تلاش کنید" };
   }

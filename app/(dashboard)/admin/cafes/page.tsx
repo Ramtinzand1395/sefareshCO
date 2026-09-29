@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { AdminPageHeader } from "@/app/(dashboard)/admin/_components/admin-page-header";
+import { AdminPagination } from "@/app/(dashboard)/admin/_components/admin-pagination";
+import { BusinessStatusBadge } from "@/app/(dashboard)/admin/_components/status-badge";
 import { getAdminCafeList } from "@/src/services/admin-cafe-service";
 import type { CafeStatus } from "@/src/domain/schemas/admin-cafe";
 
@@ -9,20 +12,6 @@ export const metadata: Metadata = { title: "کافه‌ها — پنل مدیر�
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-const statusLabels: Record<string, string> = {
-  pending: "در انتظار",
-  active: "فعال",
-  suspended: "تعلیق‌شده",
-  rejected: "رد‌شده",
-};
-
-const statusColors: Record<string, string> = {
-  active: "bg-success-soft text-success",
-  pending: "bg-warning-soft text-warning",
-  suspended: "bg-danger-soft text-danger",
-  rejected: "bg-surface-subtle text-ink-muted",
-};
 
 const typeLabels: Record<string, string> = {
   cafe: "کافه",
@@ -49,17 +38,6 @@ function formatDate(iso: string) {
   } catch {
     return iso;
   }
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const colors = statusColors[status] ?? "bg-surface-subtle text-ink-muted";
-  return (
-    <span
-      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-black ${colors}`}
-    >
-      {statusLabels[status] ?? status}
-    </span>
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -108,15 +86,11 @@ export default async function AdminCafesPage({ searchParams }: Props) {
 
   return (
     <section className="mx-auto w-full max-w-7xl space-y-6">
-      {/* Header */}
       <div className="rounded-card border border-line bg-surface p-5 shadow-card sm:p-8">
-        <p className="text-sm font-black text-primary">پنل مدیریت</p>
-        <h1 className="mt-2 text-2xl font-black tracking-tight text-ink sm:text-3xl">
-          کافه‌ها و رستوران‌ها
-        </h1>
-        <p className="mt-3 max-w-2xl text-sm leading-7 text-ink-muted sm:text-base">
-          کافه‌ها و رستوران‌های عضو را مدیریت کنید.
-        </p>
+        <AdminPageHeader
+          title="کافه‌ها و رستوران‌ها"
+          description="کافه‌ها و رستوران‌های عضو را مدیریت کنید."
+        />
       </div>
 
       {/* Filters */}
@@ -235,7 +209,7 @@ export default async function AdminCafesPage({ searchParams }: Props) {
                       {cafe.mobile || cafe.phone || "—"}
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge status={cafe.status} />
+                      <BusinessStatusBadge status={cafe.status} />
                     </td>
                     <td className="hidden px-4 py-3 text-xs text-ink-muted lg:table-cell">
                       {formatDate(cafe.createdAt)}
@@ -255,33 +229,12 @@ export default async function AdminCafesPage({ searchParams }: Props) {
           </table>
         </div>
 
-        {pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-line px-4 py-3">
-            <p className="text-xs text-ink-muted">
-              صفحه {pagination.page.toLocaleString("fa-IR")} از{" "}
-              {pagination.totalPages.toLocaleString("fa-IR")} — مجموع{" "}
-              {pagination.total.toLocaleString("fa-IR")} کافه
-            </p>
-            <div className="flex gap-2">
-              {pagination.hasPreviousPage && (
-                <Link
-                  href={buildUrl({ page: String(pagination.page - 1) })}
-                  className="rounded-lg border border-line px-3 py-1.5 text-xs font-bold text-ink-muted transition hover:border-primary hover:text-primary"
-                >
-                  قبلی
-                </Link>
-              )}
-              {pagination.hasNextPage && (
-                <Link
-                  href={buildUrl({ page: String(pagination.page + 1) })}
-                  className="rounded-lg border border-line px-3 py-1.5 text-xs font-bold text-ink-muted transition hover:border-primary hover:text-primary"
-                >
-                  بعدی
-                </Link>
-              )}
-            </div>
-          </div>
-        )}
+        <AdminPagination
+          pagination={pagination}
+          entityLabel="کافه"
+          previousHref={buildUrl({ page: String(pagination.page - 1) })}
+          nextHref={buildUrl({ page: String(pagination.page + 1) })}
+        />
       </div>
     </section>
   );

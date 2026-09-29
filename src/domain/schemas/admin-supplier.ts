@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { adminEntityIdSchema } from "@/src/domain/schemas/admin-common";
+
 // ---------------------------------------------------------------------------
 // Status – matches model enum exactly
 // ---------------------------------------------------------------------------
@@ -14,7 +16,7 @@ export const supplierStatusValues = [
 export type SupplierStatus = (typeof supplierStatusValues)[number];
 
 export const updateSupplierStatusSchema = z.object({
-  supplierId: z.string().min(1, "شناسه تأمین‌کننده الزامی است"),
+  supplierId: adminEntityIdSchema,
   status: z.enum(supplierStatusValues, {
     message: "وضعیت انتخاب‌شده معتبر نیست",
   }),
@@ -34,7 +36,7 @@ export type SupplierVerificationAction =
   (typeof supplierVerificationValues)[number];
 
 export const updateSupplierVerificationSchema = z.object({
-  supplierId: z.string().min(1, "شناسه تأمین‌کننده الزامی است"),
+  supplierId: adminEntityIdSchema,
   action: z.enum(supplierVerificationValues, {
     message: "عملیات تأیید معتبر نیست",
   }),

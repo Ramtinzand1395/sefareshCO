@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "تکمیل حساب" };
 export default async function OnboardingPage() {
   const user = await requireUser();
   if (user.onboardingCompleted) {
-    redirect(await getDefaultDestination(user.id, user.isAdmin));
+    redirect(await getDefaultDestination(user.id, user.isAdmin, user.status));
   }
 
   return (

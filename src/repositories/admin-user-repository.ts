@@ -1,3 +1,5 @@
+import { Types } from "mongoose";
+
 import dbConnect from "@/lib/mongodb";
 import { User } from "@/model/user";
 import { CafeMember } from "@/model/cafe-member";
@@ -5,6 +7,11 @@ import { SupplierMember } from "@/model/supplier-member";
 import { Cafe } from "@/model/cafe";
 import { Supplier } from "@/model/supplier";
 import type { UserStatus } from "@/src/domain/schemas/admin-user";
+import {
+  escapeAdminSearch,
+  normalizeAdminPagination,
+} from "@/src/lib/admin-query";
+import { matchedExistingDocument } from "@/src/repositories/update-result";
 
 // ---------------------------------------------------------------------------
 // DTO types – fully serializable, no ObjectId / Mongoose Document
@@ -16,7 +23,7 @@ export type AdminUserListItemDTO = {
   lastName?: string;
   email: string;
   mobile?: string;
-  status: string;
+  status: UserStatus;
   isAdmin: boolean;
   onboardingCompleted: boolean;
   createdAt: string;
@@ -62,13 +69,7 @@ export type AdminUserListResult = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const MAX_PAGE_SIZE = 50;
 const notDeleted = { deletedAt: null };
-
-/** Escape user-supplied text so it can be used inside a RegExp safely. */
-function escapeRegex(str: string) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 type UserListDoc = {
   _id: { toString(): string };
@@ -76,7 +77,7 @@ type UserListDoc = {
   lastName?: string;
   email?: string;
   mobile?: string;
-  status?: string;
+  status?: UserStatus;
   isAdmin?: boolean;
   onboardingCompleted?: boolean;
   createdAt?: Date;
@@ -107,9 +108,10 @@ export async function findAdminUserList(
 ): Promise<AdminUserListResult> {
   await dbConnect();
 
-  const page = Math.max(1, query.page);
-  const pageSize = Math.min(Math.max(1, query.pageSize), MAX_PAGE_SIZE);
-  const skip = (page - 1) * pageSize;
+  const { pageSize, skip } = normalizeAdminPagination(
+    query.page,
+    query.pageSize,
+  );
 
   // Build filter
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -124,7 +126,7 @@ export async function findAdminUserList(
   }
 
   if (query.search) {
-    const escaped = escapeRegex(query.search.trim());
+    const escaped = escapeAdminSearch(query.search);
     if (escaped) {
       const regex = { $regex: escaped, $options: "i" };
       filter.$or = [
@@ -142,7 +144,7 @@ export async function findAdminUserList(
   const [docs, total] = await Promise.all([
     User.find(filter)
       .select(projection)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .skip(skip)
       .limit(pageSize)
       .lean(),
@@ -189,6 +191,7 @@ type SupplierDoc = {
 export async function findAdminUserDetail(
   userId: string,
 ): Promise<AdminUserDetailDTO | null> {
+  if (!Types.ObjectId.isValid(userId)) return null;
   await dbConnect();
 
   const user = (await User.findOne({ _id: userId, ...notDeleted })
@@ -278,10 +281,11 @@ export async function findAdminUserDetail(
 // ---------------------------------------------------------------------------
 
 export async function updateUserStatus(userId: string, status: UserStatus) {
+  if (!Types.ObjectId.isValid(userId)) return false;
   await dbConnect();
   const result = await User.updateOne(
     { _id: userId, ...notDeleted },
     { $set: { status } },
   );
-  return result.modifiedCount > 0;
+  return matchedExistingDocument(result);
 }

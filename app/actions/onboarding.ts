@@ -49,7 +49,11 @@ export async function onboardingAction(
       return { fieldErrors: { mobile: ["این شماره موبایل قبلاً ثبت شده است"] } };
     }
     if (error instanceof OnboardingAlreadyCompletedError) {
-      const recoveredDestination = await getDefaultDestination(user.id, user.isAdmin);
+      const recoveredDestination = await getDefaultDestination(
+        user.id,
+        user.isAdmin,
+        user.status,
+      );
       if (
         recoveredDestination === "/onboarding" ||
         recoveredDestination === "/admin"

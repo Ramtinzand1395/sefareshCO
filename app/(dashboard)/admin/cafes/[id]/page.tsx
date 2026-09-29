@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getAdminCafeDetail } from "@/src/services/admin-cafe-service";
+import {
+  CafeNotFoundError,
+  getAdminCafeDetail,
+  InvalidCafeIdError,
+} from "@/src/services/admin-cafe-service";
 import { CafeStatusForm } from "@/app/(dashboard)/admin/cafes/cafe-status-form";
 
 type Props = { params: Promise<{ id: string }> };
@@ -12,8 +16,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {
     const cafe = await getAdminCafeDetail(id);
     return { title: `${cafe.name} — کافه‌ها — پنل مدیریت` };
-  } catch {
-    return { title: "کافه یافت نشد" };
+  } catch (error) {
+    if (error instanceof CafeNotFoundError || error instanceof InvalidCafeIdError) {
+      return { title: "کافه یافت نشد" };
+    }
+    throw error;
   }
 }
 
@@ -109,8 +116,11 @@ export default async function AdminCafeDetailPage({ params }: Props) {
   let cafe;
   try {
     cafe = await getAdminCafeDetail(id);
-  } catch {
-    notFound();
+  } catch (error) {
+    if (error instanceof CafeNotFoundError || error instanceof InvalidCafeIdError) {
+      notFound();
+    }
+    throw error;
   }
 
   return (

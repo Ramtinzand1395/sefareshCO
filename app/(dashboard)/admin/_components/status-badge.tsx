@@ -25,6 +25,14 @@ const businessStatusLabels: Record<string, string> = {
   deleted: "حذف‌شده",
 };
 
+const businessStatusClasses: Record<string, string> = {
+  active: "bg-success-soft text-success",
+  pending: "bg-warning-soft text-warning",
+  suspended: "bg-danger-soft text-danger",
+  rejected: "bg-surface-subtle text-ink-muted",
+  deleted: "bg-surface-subtle text-ink-muted",
+};
+
 export function UserStatusBadge({ status }: { status: UserStatus }) {
   const config = userStatusConfig[status];
   return (
@@ -51,4 +59,16 @@ export function MembershipStatusBadge({ status }: { status: string }) {
 
 export function businessStatusLabel(status: string) {
   return businessStatusLabels[status] ?? status;
+}
+
+export function BusinessStatusBadge({ status }: { status: string }) {
+  const className =
+    businessStatusClasses[status] ?? "bg-surface-subtle text-ink-muted";
+  return (
+    <span
+      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-black ${className}`}
+    >
+      {businessStatusLabel(status)}
+    </span>
+  );
 }

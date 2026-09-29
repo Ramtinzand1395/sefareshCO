@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { adminEntityIdSchema } from "@/src/domain/schemas/admin-common";
+
 // Matches model enum exactly: ["pending", "active", "suspended", "rejected"]
 export const cafeStatusValues = [
   "pending",
@@ -11,7 +13,7 @@ export const cafeStatusValues = [
 export type CafeStatus = (typeof cafeStatusValues)[number];
 
 export const updateCafeStatusSchema = z.object({
-  cafeId: z.string().min(1, "شناسه کافه الزامی است"),
+  cafeId: adminEntityIdSchema,
   status: z.enum(cafeStatusValues, {
     message: "وضعیت انتخاب‌شده معتبر نیست",
   }),

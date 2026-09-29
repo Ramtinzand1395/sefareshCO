@@ -1,6 +1,7 @@
 import { compare, hash } from "bcryptjs";
 
 import type { RegisterInput } from "@/src/domain/schemas/auth";
+import { hasActiveBusinessAccess } from "@/src/domain/admin-access";
 import {
   createCredentialsUser,
   findUserByEmail,
@@ -11,6 +12,9 @@ import {
 } from "@/src/repositories/user-repository";
 import { findActiveCafeMembership } from "@/src/repositories/cafe-member-repository";
 import { findActiveSupplierMembership } from "@/src/repositories/supplier-member-repository";
+import { findCafeById } from "@/src/repositories/cafe-repository";
+import { findSupplierById } from "@/src/repositories/supplier-repository";
+import type { UserStatus } from "@/model/user";
 
 export class EmailAlreadyExistsError extends Error {}
 export class AccountUnavailableError extends Error {}
@@ -21,14 +25,43 @@ const LOCK_DURATION_MS = 15 * 60 * 1000;
 export async function getDefaultDestination(
   userId: string,
   isAdmin = false,
+  userStatus: UserStatus = "active",
 ): Promise<"/cafe" | "/supplier" | "/admin" | "/onboarding"> {
+  if (userStatus !== "active") return "/onboarding";
   if (isAdmin) return "/admin";
+
   const [cafeMembership, supplierMembership] = await Promise.all([
     findActiveCafeMembership(userId),
     findActiveSupplierMembership(userId),
   ]);
-  if (cafeMembership) return "/cafe";
-  if (supplierMembership) return "/supplier";
+
+  const [cafe, supplier] = await Promise.all([
+    cafeMembership
+      ? findCafeById(cafeMembership.cafeId.toString())
+      : Promise.resolve(null),
+    supplierMembership
+      ? findSupplierById(supplierMembership.supplierId.toString())
+      : Promise.resolve(null),
+  ]);
+
+  if (
+    hasActiveBusinessAccess({
+      userStatus,
+      membershipStatus: cafeMembership?.status,
+      businessStatus: cafe?.status,
+    })
+  ) {
+    return "/cafe";
+  }
+  if (
+    hasActiveBusinessAccess({
+      userStatus,
+      membershipStatus: supplierMembership?.status,
+      businessStatus: supplier?.status,
+    })
+  ) {
+    return "/supplier";
+  }
   return "/onboarding";
 }
 
@@ -77,7 +110,7 @@ export async function authenticateWithCredentials(email: string, password: strin
     onboardingCompleted: user.onboardingCompleted,
     isAdmin: user.isAdmin,
     destination: user.onboardingCompleted
-      ? await getDefaultDestination(user.id, user.isAdmin)
+      ? await getDefaultDestination(user.id, user.isAdmin, user.status)
       : "/onboarding",
   };
 }
@@ -108,7 +141,7 @@ export async function authenticateWithGoogle(input: {
   return {
     ...user,
     destination: user.onboardingCompleted
-      ? await getDefaultDestination(user.id, user.isAdmin)
+      ? await getDefaultDestination(user.id, user.isAdmin, user.status)
       : "/onboarding",
   };
 }

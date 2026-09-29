@@ -27,3 +27,18 @@ export async function deleteSupplier(supplierId: string) {
   await dbConnect();
   await Supplier.deleteOne({ _id: supplierId });
 }
+
+export async function findSupplierById(supplierId: string) {
+  await dbConnect();
+  const doc = (await Supplier.findOne({ _id: supplierId, deletedAt: null })
+    .select("status")
+    .lean()) as { _id: unknown; status?: string } | null;
+  if (!doc) return null;
+  return {
+    status: (doc.status ?? "pending") as
+      | "pending"
+      | "active"
+      | "suspended"
+      | "rejected",
+  };
+}

@@ -1,8 +1,15 @@
+import { Types } from "mongoose";
+
 import dbConnect from "@/lib/mongodb";
 import { Cafe } from "@/model/cafe";
 import { CafeMember } from "@/model/cafe-member";
 import { User } from "@/model/user";
 import type { CafeStatus } from "@/src/domain/schemas/admin-cafe";
+import {
+  escapeAdminSearch,
+  normalizeAdminPagination,
+} from "@/src/lib/admin-query";
+import { matchedExistingDocument } from "@/src/repositories/update-result";
 
 // ---------------------------------------------------------------------------
 // DTOs – fully serializable, no ObjectId / Mongoose Document
@@ -100,12 +107,7 @@ type UserLeanDoc = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const MAX_PAGE_SIZE = 50;
 const notDeleted = { deletedAt: null };
-
-function escapeRegex(str: string) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 function toListItem(doc: CafeListDoc): AdminCafeListItemDTO {
   return {
@@ -131,9 +133,10 @@ export async function findAdminCafeList(
 ): Promise<AdminCafeListResult> {
   await dbConnect();
 
-  const page = Math.max(1, query.page);
-  const pageSize = Math.min(Math.max(1, query.pageSize), MAX_PAGE_SIZE);
-  const skip = (page - 1) * pageSize;
+  const { pageSize, skip } = normalizeAdminPagination(
+    query.page,
+    query.pageSize,
+  );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const filter: Record<string, any> = { ...notDeleted };
@@ -143,7 +146,7 @@ export async function findAdminCafeList(
   }
 
   if (query.search) {
-    const escaped = escapeRegex(query.search.trim());
+    const escaped = escapeAdminSearch(query.search);
     if (escaped) {
       const regex = { $regex: escaped, $options: "i" };
       // Only search fields that exist in the Cafe model
@@ -161,7 +164,7 @@ export async function findAdminCafeList(
   const [docs, total] = await Promise.all([
     Cafe.find(filter)
       .select(projection)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .skip(skip)
       .limit(pageSize)
       .lean(),
@@ -179,6 +182,7 @@ export async function findAdminCafeList(
 export async function findAdminCafeDetail(
   cafeId: string,
 ): Promise<AdminCafeDetailDTO | null> {
+  if (!Types.ObjectId.isValid(cafeId)) return null;
   await dbConnect();
 
   const cafe = (await Cafe.findOne({ _id: cafeId, ...notDeleted })
@@ -253,10 +257,11 @@ export async function updateCafeStatus(
   cafeId: string,
   status: CafeStatus,
 ): Promise<boolean> {
+  if (!Types.ObjectId.isValid(cafeId)) return false;
   await dbConnect();
   const result = await Cafe.updateOne(
     { _id: cafeId, ...notDeleted },
     { $set: { status } },
   );
-  return result.modifiedCount > 0;
+  return matchedExistingDocument(result);
 }

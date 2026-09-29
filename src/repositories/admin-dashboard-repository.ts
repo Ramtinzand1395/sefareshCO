@@ -1,11 +1,7 @@
 import dbConnect from "@/lib/mongodb";
-import { User } from "@/model/user";
 import { Cafe } from "@/model/cafe";
 import { Supplier } from "@/model/supplier";
-
-// ---------------------------------------------------------------------------
-// DTO types – fully serializable, no ObjectId / Mongoose Document
-// ---------------------------------------------------------------------------
+import { User } from "@/model/user";
 
 export type UserCountsDTO = {
   total: number;
@@ -23,12 +19,7 @@ export type CafeCountsDTO = {
   rejected: number;
 };
 
-export type SupplierCountsDTO = {
-  total: number;
-  active: number;
-  pending: number;
-  suspended: number;
-  rejected: number;
+export type SupplierCountsDTO = CafeCountsDTO & {
   verified: number;
   unverified: number;
 };
@@ -59,56 +50,21 @@ export type RecentSupplierDTO = {
   createdAt: string;
 };
 
-// ---------------------------------------------------------------------------
-// Counts – executed in parallel via Promise.all by the caller
-// ---------------------------------------------------------------------------
+export type AdminDashboardOverviewRecord = {
+  users: UserCountsDTO;
+  cafes: CafeCountsDTO;
+  suppliers: SupplierCountsDTO;
+  latestUsers: RecentUserDTO[];
+  latestCafes: RecentCafeDTO[];
+  latestSuppliers: RecentSupplierDTO[];
+};
 
-const notDeleted = { deletedAt: null };
+type AggregateResult<TCounts, TLatest> = Array<{
+  counts: TCounts[];
+  latest: TLatest[];
+}>;
 
-export async function getUserCounts(): Promise<UserCountsDTO> {
-  await dbConnect();
-  const [total, active, pending, suspended, disabled] = await Promise.all([
-    User.countDocuments(notDeleted),
-    User.countDocuments({ ...notDeleted, status: "active" }),
-    User.countDocuments({ ...notDeleted, status: "pending" }),
-    User.countDocuments({ ...notDeleted, status: "suspended" }),
-    User.countDocuments({ ...notDeleted, status: "disabled" }),
-  ]);
-  return { total, active, pending, suspended, disabled };
-}
-
-export async function getCafeCounts(): Promise<CafeCountsDTO> {
-  await dbConnect();
-  const [total, active, pending, suspended, rejected] = await Promise.all([
-    Cafe.countDocuments(notDeleted),
-    Cafe.countDocuments({ ...notDeleted, status: "active" }),
-    Cafe.countDocuments({ ...notDeleted, status: "pending" }),
-    Cafe.countDocuments({ ...notDeleted, status: "suspended" }),
-    Cafe.countDocuments({ ...notDeleted, status: "rejected" }),
-  ]);
-  return { total, active, pending, suspended, rejected };
-}
-
-export async function getSupplierCounts(): Promise<SupplierCountsDTO> {
-  await dbConnect();
-  const [total, active, pending, suspended, rejected, verified, unverified] =
-    await Promise.all([
-      Supplier.countDocuments(notDeleted),
-      Supplier.countDocuments({ ...notDeleted, status: "active" }),
-      Supplier.countDocuments({ ...notDeleted, status: "pending" }),
-      Supplier.countDocuments({ ...notDeleted, status: "suspended" }),
-      Supplier.countDocuments({ ...notDeleted, status: "rejected" }),
-      Supplier.countDocuments({ ...notDeleted, isVerified: true }),
-      Supplier.countDocuments({ ...notDeleted, isVerified: false }),
-    ]);
-  return { total, active, pending, suspended, rejected, verified, unverified };
-}
-
-// ---------------------------------------------------------------------------
-// Recent activity – limited, sorted, projected
-// ---------------------------------------------------------------------------
-
-type UserDoc = {
+type UserAggregateRow = {
   _id: { toString(): string };
   email?: string;
   firstName?: string;
@@ -117,7 +73,7 @@ type UserDoc = {
   createdAt?: Date;
 };
 
-type CafeDoc = {
+type CafeAggregateRow = {
   _id: { toString(): string };
   name?: string;
   city?: string;
@@ -125,7 +81,7 @@ type CafeDoc = {
   createdAt?: Date;
 };
 
-type SupplierDoc = {
+type SupplierAggregateRow = {
   _id: { toString(): string };
   businessName?: string;
   city?: string;
@@ -134,57 +90,165 @@ type SupplierDoc = {
   createdAt?: Date;
 };
 
-export async function getLatestUsers(limit = 5): Promise<RecentUserDTO[]> {
-  await dbConnect();
-  const docs = (await User.find(notDeleted)
-    .select("email firstName lastName status createdAt")
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .lean()) as unknown as UserDoc[];
+const notDeleted = { deletedAt: null };
+const epoch = new Date(0);
 
-  return docs.map((doc) => ({
-    id: doc._id.toString(),
-    email: doc.email ?? "",
-    firstName: doc.firstName,
-    lastName: doc.lastName,
-    status: doc.status ?? "pending",
-    createdAt: (doc.createdAt ?? new Date()).toISOString(),
-  }));
+function statusCount(status: string) {
+  return { $sum: { $cond: [{ $eq: ["$status", status] }, 1, 0] } };
 }
 
-export async function getLatestCafes(limit = 5): Promise<RecentCafeDTO[]> {
+export async function getAdminDashboardOverviewRecord(
+  recentLimit = 5,
+): Promise<AdminDashboardOverviewRecord> {
   await dbConnect();
-  const docs = (await Cafe.find(notDeleted)
-    .select("name city status createdAt")
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .lean()) as unknown as CafeDoc[];
 
-  return docs.map((doc) => ({
-    id: doc._id.toString(),
-    name: doc.name ?? "",
-    city: doc.city,
-    status: doc.status ?? "pending",
-    createdAt: (doc.createdAt ?? new Date()).toISOString(),
-  }));
-}
+  const [userResult, cafeResult, supplierResult] = await Promise.all([
+    User.aggregate([
+      { $match: notDeleted },
+      {
+        $facet: {
+          counts: [
+            {
+              $group: {
+                _id: null,
+                total: { $sum: 1 },
+                active: statusCount("active"),
+                pending: statusCount("pending"),
+                suspended: statusCount("suspended"),
+                disabled: statusCount("disabled"),
+              },
+            },
+          ],
+          latest: [
+            { $sort: { createdAt: -1, _id: -1 } },
+            { $limit: recentLimit },
+            {
+              $project: {
+                email: 1,
+                firstName: 1,
+                lastName: 1,
+                status: 1,
+                createdAt: 1,
+              },
+            },
+          ],
+        },
+      },
+    ]) as Promise<AggregateResult<UserCountsDTO, UserAggregateRow>>,
+    Cafe.aggregate([
+      { $match: notDeleted },
+      {
+        $facet: {
+          counts: [
+            {
+              $group: {
+                _id: null,
+                total: { $sum: 1 },
+                active: statusCount("active"),
+                pending: statusCount("pending"),
+                suspended: statusCount("suspended"),
+                rejected: statusCount("rejected"),
+              },
+            },
+          ],
+          latest: [
+            { $sort: { createdAt: -1, _id: -1 } },
+            { $limit: recentLimit },
+            { $project: { name: 1, city: 1, status: 1, createdAt: 1 } },
+          ],
+        },
+      },
+    ]) as Promise<AggregateResult<CafeCountsDTO, CafeAggregateRow>>,
+    Supplier.aggregate([
+      { $match: notDeleted },
+      {
+        $facet: {
+          counts: [
+            {
+              $group: {
+                _id: null,
+                total: { $sum: 1 },
+                active: statusCount("active"),
+                pending: statusCount("pending"),
+                suspended: statusCount("suspended"),
+                rejected: statusCount("rejected"),
+                verified: {
+                  $sum: { $cond: [{ $eq: ["$isVerified", true] }, 1, 0] },
+                },
+                unverified: {
+                  $sum: { $cond: [{ $ne: ["$isVerified", true] }, 1, 0] },
+                },
+              },
+            },
+          ],
+          latest: [
+            { $sort: { createdAt: -1, _id: -1 } },
+            { $limit: recentLimit },
+            {
+              $project: {
+                businessName: 1,
+                city: 1,
+                status: 1,
+                isVerified: 1,
+                createdAt: 1,
+              },
+            },
+          ],
+        },
+      },
+    ]) as Promise<AggregateResult<SupplierCountsDTO, SupplierAggregateRow>>,
+  ]);
 
-export async function getLatestSuppliers(
-  limit = 5,
-): Promise<RecentSupplierDTO[]> {
-  await dbConnect();
-  const docs = (await Supplier.find(notDeleted)
-    .select("businessName city status isVerified createdAt")
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .lean()) as unknown as SupplierDoc[];
+  const userCounts = userResult[0]?.counts[0];
+  const cafeCounts = cafeResult[0]?.counts[0];
+  const supplierCounts = supplierResult[0]?.counts[0];
 
-  return docs.map((doc) => ({
-    id: doc._id.toString(),
-    businessName: doc.businessName ?? "",
-    city: doc.city,
-    status: doc.status ?? "pending",
-    isVerified: doc.isVerified ?? false,
-    createdAt: (doc.createdAt ?? new Date()).toISOString(),
-  }));
+  return {
+    users: {
+      total: userCounts?.total ?? 0,
+      active: userCounts?.active ?? 0,
+      pending: userCounts?.pending ?? 0,
+      suspended: userCounts?.suspended ?? 0,
+      disabled: userCounts?.disabled ?? 0,
+    },
+    cafes: {
+      total: cafeCounts?.total ?? 0,
+      active: cafeCounts?.active ?? 0,
+      pending: cafeCounts?.pending ?? 0,
+      suspended: cafeCounts?.suspended ?? 0,
+      rejected: cafeCounts?.rejected ?? 0,
+    },
+    suppliers: {
+      total: supplierCounts?.total ?? 0,
+      active: supplierCounts?.active ?? 0,
+      pending: supplierCounts?.pending ?? 0,
+      suspended: supplierCounts?.suspended ?? 0,
+      rejected: supplierCounts?.rejected ?? 0,
+      verified: supplierCounts?.verified ?? 0,
+      unverified: supplierCounts?.unverified ?? 0,
+    },
+    latestUsers: (userResult[0]?.latest ?? []).map((doc) => ({
+      id: doc._id.toString(),
+      email: doc.email ?? "",
+      firstName: doc.firstName,
+      lastName: doc.lastName,
+      status: doc.status ?? "pending",
+      createdAt: (doc.createdAt ?? epoch).toISOString(),
+    })),
+    latestCafes: (cafeResult[0]?.latest ?? []).map((doc) => ({
+      id: doc._id.toString(),
+      name: doc.name ?? "",
+      city: doc.city,
+      status: doc.status ?? "pending",
+      createdAt: (doc.createdAt ?? epoch).toISOString(),
+    })),
+    latestSuppliers: (supplierResult[0]?.latest ?? []).map((doc) => ({
+      id: doc._id.toString(),
+      businessName: doc.businessName ?? "",
+      city: doc.city,
+      status: doc.status ?? "pending",
+      isVerified: doc.isVerified ?? false,
+      createdAt: (doc.createdAt ?? epoch).toISOString(),
+    })),
+  };
 }

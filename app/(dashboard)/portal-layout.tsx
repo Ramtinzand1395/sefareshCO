@@ -15,7 +15,13 @@ export async function PortalLayout({
   children: ReactNode;
 }) {
   const user = await requireUser();
-  const destination = await getDefaultDestination(user.id, user.isAdmin);
+  if (user.status !== "active") redirect("/login");
+
+  const destination = await getDefaultDestination(
+    user.id,
+    user.isAdmin,
+    user.status,
+  );
   const redirectTo = getAuthRedirect(`/${portal}`, {
     onboardingCompleted: user.onboardingCompleted,
     isAdmin: user.isAdmin,

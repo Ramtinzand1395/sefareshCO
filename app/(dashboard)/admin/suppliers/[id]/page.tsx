@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getAdminSupplierDetail } from "@/src/services/admin-supplier-service";
+import {
+  getAdminSupplierDetail,
+  InvalidSupplierIdError,
+  SupplierNotFoundError,
+} from "@/src/services/admin-supplier-service";
 import {
   SupplierStatusForm,
   SupplierVerificationForm,
@@ -17,8 +21,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return {
       title: `${supplier.businessName} — تأمین‌کنندگان — پنل مدیریت`,
     };
-  } catch {
-    return { title: "تأمین‌کننده یافت نشد" };
+  } catch (error) {
+    if (
+      error instanceof SupplierNotFoundError ||
+      error instanceof InvalidSupplierIdError
+    ) {
+      return { title: "تأمین‌کننده یافت نشد" };
+    }
+    throw error;
   }
 }
 
@@ -105,8 +115,14 @@ export default async function AdminSupplierDetailPage({ params }: Props) {
   let supplier;
   try {
     supplier = await getAdminSupplierDetail(id);
-  } catch {
-    notFound();
+  } catch (error) {
+    if (
+      error instanceof SupplierNotFoundError ||
+      error instanceof InvalidSupplierIdError
+    ) {
+      notFound();
+    }
+    throw error;
   }
 
   return (
