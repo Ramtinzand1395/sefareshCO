@@ -384,6 +384,12 @@ export const dashboardPortals = {
         description: "اطلاعات و وضعیت تأمین‌کننده انتخاب‌شده نمایش داده می‌شود.",
         parentHref: "/admin/suppliers",
       },
+      {
+        pattern: "/admin/users/[id]",
+        title: "جزئیات کاربر",
+        description: "اطلاعات حساب و ارتباط کاربر با کسب‌وکارها نمایش داده می‌شود.",
+        parentHref: "/admin/users",
+      },
     ],
   },
 } satisfies Record<DashboardPortal, DashboardPortalConfig>;

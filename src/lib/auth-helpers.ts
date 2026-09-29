@@ -20,6 +20,12 @@ export async function requireUser() {
   return user;
 }
 
+export async function requireAdminUser() {
+  const user = await requireUser();
+  if (!user.isAdmin || user.status !== "active") redirect("/");
+  return user;
+}
+
 export async function getCurrentCafeIdentity() {
   const user = await requireUser();
   const membership = await findActiveCafeMembership(user.id);

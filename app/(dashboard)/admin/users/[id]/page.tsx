@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getAdminUserDetail } from "@/src/services/admin-user-service";
 import { UserStatusForm } from "@/app/(dashboard)/admin/users/user-status-form";
+import { getAdminUserDetail } from "@/src/services/admin-user-service";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -18,10 +18,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: "کاربر یافت نشد" };
   }
 }
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 const statusLabels: Record<string, string> = {
   active: "فعال",
@@ -68,10 +64,6 @@ function formatDate(iso: string | null) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Small presentational components
-// ---------------------------------------------------------------------------
-
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1 sm:flex-row sm:gap-4">
@@ -90,10 +82,6 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
-
 export default async function AdminUserDetailPage({ params }: Props) {
   const { id } = await params;
 
@@ -109,7 +97,6 @@ export default async function AdminUserDetailPage({ params }: Props) {
 
   return (
     <section className="mx-auto w-full max-w-4xl space-y-6">
-      {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-xs text-ink-muted">
         <Link href="/admin/users" className="transition hover:text-primary">
           کاربران
@@ -118,7 +105,6 @@ export default async function AdminUserDetailPage({ params }: Props) {
         <span className="text-ink">{fullName}</span>
       </nav>
 
-      {/* Header card */}
       <div className="rounded-card border border-line bg-surface p-5 shadow-card sm:p-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -133,7 +119,6 @@ export default async function AdminUserDetailPage({ params }: Props) {
           <StatusBadge status={user.status} />
         </div>
 
-        {/* Core info */}
         <dl className="mt-8 space-y-3 border-t border-line pt-6">
           <InfoRow label="شناسه کاربر">
             <span className="break-all font-mono text-xs">{user.id}</span>
@@ -175,19 +160,13 @@ export default async function AdminUserDetailPage({ params }: Props) {
               <span className="text-xs text-warning">ناتمام</span>
             )}
           </InfoRow>
-          <InfoRow label="تاریخ عضویت">
-            {formatDate(user.createdAt)}
-          </InfoRow>
-          <InfoRow label="آخرین ورود">
-            {formatDate(user.lastLoginAt)}
-          </InfoRow>
+          <InfoRow label="تاریخ عضویت">{formatDate(user.createdAt)}</InfoRow>
+          <InfoRow label="آخرین ورود">{formatDate(user.lastLoginAt)}</InfoRow>
         </dl>
       </div>
 
-      {/* Status change */}
       <UserStatusForm userId={user.id} currentStatus={user.status} />
 
-      {/* Cafe memberships */}
       {user.cafeMemberships.length > 0 && (
         <div className="rounded-xl border border-line bg-surface shadow-card">
           <div className="border-b border-line px-4 py-3">
@@ -205,19 +184,19 @@ export default async function AdminUserDetailPage({ params }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {user.cafeMemberships.map((m) => (
+                {user.cafeMemberships.map((membership) => (
                   <tr
-                    key={m.cafeId}
+                    key={membership.cafeId}
                     className="border-b border-line last:border-0"
                   >
                     <td className="px-4 py-2.5 font-bold text-ink">
-                      {m.cafeName || "—"}
+                      {membership.cafeName || "—"}
                     </td>
                     <td className="px-4 py-2.5 text-ink-muted">
-                      {memberRoleLabels[m.role] ?? m.role}
+                      {memberRoleLabels[membership.role] ?? membership.role}
                     </td>
                     <td className="px-4 py-2.5 text-ink-muted">
-                      {memberStatusLabels[m.status] ?? m.status}
+                      {memberStatusLabels[membership.status] ?? membership.status}
                     </td>
                   </tr>
                 ))}
@@ -227,7 +206,6 @@ export default async function AdminUserDetailPage({ params }: Props) {
         </div>
       )}
 
-      {/* Supplier memberships */}
       {user.supplierMemberships.length > 0 && (
         <div className="rounded-xl border border-line bg-surface shadow-card">
           <div className="border-b border-line px-4 py-3">
@@ -245,19 +223,19 @@ export default async function AdminUserDetailPage({ params }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {user.supplierMemberships.map((m) => (
+                {user.supplierMemberships.map((membership) => (
                   <tr
-                    key={m.supplierId}
+                    key={membership.supplierId}
                     className="border-b border-line last:border-0"
                   >
                     <td className="px-4 py-2.5 font-bold text-ink">
-                      {m.supplierName || "—"}
+                      {membership.supplierName || "—"}
                     </td>
                     <td className="px-4 py-2.5 text-ink-muted">
-                      {memberRoleLabels[m.role] ?? m.role}
+                      {memberRoleLabels[membership.role] ?? membership.role}
                     </td>
                     <td className="px-4 py-2.5 text-ink-muted">
-                      {memberStatusLabels[m.status] ?? m.status}
+                      {memberStatusLabels[membership.status] ?? membership.status}
                     </td>
                   </tr>
                 ))}
@@ -267,7 +245,6 @@ export default async function AdminUserDetailPage({ params }: Props) {
         </div>
       )}
 
-      {/* Back link */}
       <div className="pb-4">
         <Link
           href="/admin/users"
