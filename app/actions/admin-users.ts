@@ -49,6 +49,7 @@ export async function updateUserStatusAction(
   // 4. Revalidate
   revalidatePath("/admin/users");
   revalidatePath(`/admin/users/${parsed.data.userId}`);
+  revalidatePath("/admin");
 
   return { ok: true };
 }

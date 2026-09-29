@@ -15,7 +15,7 @@ export function AdminPageHeader({
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0">
         <p className="text-xs font-black tracking-wide text-primary">
-          مدیریت سفارش
+          پنل مدیریت سفارش
         </p>
         <h1 className="mt-2 text-2xl font-black tracking-tight text-ink sm:text-3xl">
           {title}

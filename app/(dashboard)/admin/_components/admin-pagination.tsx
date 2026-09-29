@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import type { AdminPaginationMeta } from "@/src/lib/admin-query";
+import { formatPersianNumber } from "@/src/lib/persian-format";
 
 export function AdminPagination({
   pagination,
@@ -16,17 +17,20 @@ export function AdminPagination({
   if (pagination.totalPages <= 1) return null;
 
   return (
-    <div className="flex items-center justify-between border-t border-line px-4 py-3">
+    <nav
+      aria-label="صفحه‌بندی"
+      className="flex flex-col gap-3 border-t border-line px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+    >
       <p className="text-xs text-ink-muted">
-        صفحه {pagination.page.toLocaleString("fa-IR")} از{" "}
-        {pagination.totalPages.toLocaleString("fa-IR")} — مجموع{" "}
-        {pagination.total.toLocaleString("fa-IR")} {entityLabel}
+        صفحه {formatPersianNumber(pagination.page)} از{" "}
+        {formatPersianNumber(pagination.totalPages)} — مجموع{" "}
+        {formatPersianNumber(pagination.total)} {entityLabel}
       </p>
-      <div className="flex gap-2">
+      <div className="flex gap-2 self-end sm:self-auto">
         {pagination.hasPreviousPage && previousHref ? (
           <Link
             href={previousHref}
-            className="rounded-lg border border-line px-3 py-1.5 text-xs font-bold text-ink-muted transition hover:border-primary hover:text-primary"
+            className="inline-flex min-h-10 items-center rounded-lg border border-line px-4 text-xs font-bold text-ink-muted transition hover:border-primary hover:text-primary"
           >
             قبلی
           </Link>
@@ -34,12 +38,12 @@ export function AdminPagination({
         {pagination.hasNextPage && nextHref ? (
           <Link
             href={nextHref}
-            className="rounded-lg border border-line px-3 py-1.5 text-xs font-bold text-ink-muted transition hover:border-primary hover:text-primary"
+            className="inline-flex min-h-10 items-center rounded-lg border border-line px-4 text-xs font-bold text-ink-muted transition hover:border-primary hover:text-primary"
           >
             بعدی
           </Link>
         ) : null}
       </div>
-    </div>
+    </nav>
   );
 }

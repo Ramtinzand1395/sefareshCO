@@ -53,6 +53,7 @@ export async function updateSupplierStatusAction(
   // 4. Revalidate
   revalidatePath("/admin/suppliers");
   revalidatePath(`/admin/suppliers/${parsed.data.supplierId}`);
+  revalidatePath("/admin");
 
   return { ok: true };
 }
@@ -94,6 +95,7 @@ export async function updateSupplierVerificationAction(
   // 4. Revalidate
   revalidatePath("/admin/suppliers");
   revalidatePath(`/admin/suppliers/${parsed.data.supplierId}`);
+  revalidatePath("/admin");
 
   return { ok: true };
 }

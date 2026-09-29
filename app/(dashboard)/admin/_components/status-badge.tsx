@@ -33,11 +33,28 @@ const businessStatusClasses: Record<string, string> = {
   deleted: "bg-surface-subtle text-ink-muted",
 };
 
-export function UserStatusBadge({ status }: { status: UserStatus }) {
-  const config = userStatusConfig[status];
+const verificationConfig = {
+  verified: {
+    label: "تأییدشده",
+    className: "bg-success-soft text-success",
+  },
+  unverified: {
+    label: "تأییدنشده",
+    className: "bg-warning-soft text-warning",
+  },
+} as const;
+
+const badgeClassName =
+  "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-black";
+
+export function UserStatusBadge({ status }: { status: string }) {
+  const config = userStatusConfig[status as UserStatus] ?? {
+    label: status,
+    className: "bg-surface-subtle text-ink-muted",
+  };
   return (
     <span
-      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-black ${config.className}`}
+      className={`${badgeClassName} ${config.className}`}
     >
       {config.label}
     </span>
@@ -48,7 +65,7 @@ export function MembershipStatusBadge({ status }: { status: string }) {
   const active = status === "active";
   return (
     <span
-      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-black ${
+      className={`${badgeClassName} ${
         active ? "bg-success-soft text-success" : "bg-surface-subtle text-ink-muted"
       }`}
     >
@@ -66,9 +83,21 @@ export function BusinessStatusBadge({ status }: { status: string }) {
     businessStatusClasses[status] ?? "bg-surface-subtle text-ink-muted";
   return (
     <span
-      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-black ${className}`}
+      className={`${badgeClassName} ${className}`}
     >
       {businessStatusLabel(status)}
+    </span>
+  );
+}
+
+export function VerificationBadge({ isVerified }: { isVerified: boolean }) {
+  const config = isVerified
+    ? verificationConfig.verified
+    : verificationConfig.unverified;
+
+  return (
+    <span className={`${badgeClassName} ${config.className}`}>
+      {config.label}
     </span>
   );
 }
