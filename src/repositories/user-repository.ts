@@ -67,7 +67,7 @@ export async function findUserWithPassword(email: string) {
 
 export async function findUserById(userId: string) {
   await dbConnect();
-  const user = await User.findById(userId).lean();
+  const user = await User.findOne({ _id: userId, deletedAt: null }).lean();
   return user ? toSafeUser(user as unknown as UserDocumentShape) : null;
 }
 
