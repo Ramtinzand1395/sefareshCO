@@ -1,219 +1,257 @@
-import {
-  IconArrowRight,
-  IconBuildingStore,
-  IconCircleCheck,
-  IconCircleX,
-  IconMail,
-  IconPhone,
-  IconShieldCheck,
-  IconTruckDelivery,
-  IconUser,
-} from "@tabler/icons-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { AdminPageHeader } from "@/app/(dashboard)/admin/_components/admin-page-header";
-import {
-  businessStatusLabel,
-  MembershipStatusBadge,
-  UserStatusBadge,
-} from "@/app/(dashboard)/admin/_components/status-badge";
-import type { AdminMembershipDto } from "@/src/domain/admin";
-import { requireAdminUser } from "@/src/lib/auth-helpers";
-import { formatPersianDate } from "@/src/lib/persian-format";
-import { getAdminUserDetail } from "@/src/services/admin-service";
-
-export const metadata: Metadata = { title: "جزئیات کاربر" };
-export const dynamic = "force-dynamic";
+import { UserStatusForm } from "@/app/(dashboard)/admin/users/user-status-form";
+import { getAdminUserDetail } from "@/src/services/admin-user-service";
 
 type Props = { params: Promise<{ id: string }> };
 
-const roleLabels: Record<string, string> = {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params;
+  try {
+    const user = await getAdminUserDetail(id);
+    const name =
+      [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email;
+    return { title: `${name} — کاربران — پنل مدیریت` };
+  } catch {
+    return { title: "کاربر یافت نشد" };
+  }
+}
+
+const statusLabels: Record<string, string> = {
+  active: "فعال",
+  pending: "در انتظار",
+  suspended: "تعلیق‌شده",
+  disabled: "غیرفعال",
+};
+
+const statusColors: Record<string, string> = {
+  active: "bg-success-soft text-success",
+  pending: "bg-warning-soft text-warning",
+  suspended: "bg-danger-soft text-danger",
+  disabled: "bg-surface-subtle text-ink-muted",
+};
+
+const memberStatusLabels: Record<string, string> = {
+  invited: "دعوت‌شده",
+  active: "فعال",
+  suspended: "تعلیق‌شده",
+  removed: "حذف‌شده",
+};
+
+const memberRoleLabels: Record<string, string> = {
   owner: "مالک",
   manager: "مدیر",
   purchase_manager: "مدیر خرید",
-  chef: "آشپز",
+  chef: "سرآشپز",
   accountant: "حسابدار",
   employee: "کارمند",
   sales: "فروش",
   warehouse: "انبار",
 };
 
-function VerificationRow({ label, verified }: { label: string; verified: boolean }) {
-  const Icon = verified ? IconCircleCheck : IconCircleX;
+function formatDate(iso: string | null) {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleDateString("fa-IR", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3 py-3">
-      <span className="text-sm text-ink-muted">{label}</span>
-      <span className={`inline-flex items-center gap-1.5 text-xs font-black ${verified ? "text-success" : "text-warning"}`}>
-        <Icon className="size-4" aria-hidden="true" />
-        {verified ? "تأیید شده" : "تأیید نشده"}
-      </span>
+    <div className="flex flex-col gap-1 sm:flex-row sm:gap-4">
+      <dt className="w-40 shrink-0 text-xs font-bold text-ink-muted">{label}</dt>
+      <dd className="text-sm text-ink">{children}</dd>
     </div>
   );
 }
 
-function MembershipList({
-  title,
-  emptyText,
-  memberships,
-  type,
-}: {
-  title: string;
-  emptyText: string;
-  memberships: AdminMembershipDto[];
-  type: "cafe" | "supplier";
-}) {
-  const Icon = type === "cafe" ? IconBuildingStore : IconTruckDelivery;
+function StatusBadge({ status }: { status: string }) {
+  const colors = statusColors[status] ?? "bg-surface-subtle text-ink-muted";
   return (
-    <section className="rounded-card border border-line bg-surface shadow-card">
-      <div className="flex items-center gap-3 border-b border-line px-5 py-4 sm:px-6">
-        <span className="grid size-10 place-items-center rounded-xl bg-primary-soft text-primary">
-          <Icon className="size-5" aria-hidden="true" />
-        </span>
-        <div>
-          <h2 className="font-black text-ink">{title}</h2>
-          <p className="mt-1 text-xs text-ink-muted">{memberships.length} ارتباط ثبت‌شده</p>
-        </div>
-      </div>
-      {memberships.length ? (
-        <ul className="divide-y divide-line">
-          {memberships.map((membership) => (
-            <li key={membership.id} className="p-5 sm:px-6">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="font-black text-ink">{membership.businessName}</p>
-                  <p className="mt-1 text-xs text-ink-muted">
-                    {roleLabels[membership.role] ?? membership.role} · {businessStatusLabel(membership.businessStatus)}
-                  </p>
-                </div>
-                <MembershipStatusBadge status={membership.status} />
-              </div>
-              <dl className="mt-4 grid gap-3 text-xs sm:grid-cols-2">
-                <div>
-                  <dt className="text-ink-muted">زمان پیوستن</dt>
-                  <dd className="mt-1 font-bold text-ink">{formatPersianDate(membership.joinedAt)}</dd>
-                </div>
-                <div>
-                  <dt className="text-ink-muted">شناسه کسب‌وکار</dt>
-                  <dd className="mt-1 break-all font-bold text-ink" dir="ltr">{membership.businessId}</dd>
-                </div>
-              </dl>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="px-6 py-10 text-center text-sm leading-7 text-ink-muted">{emptyText}</p>
-      )}
-    </section>
+    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-black ${colors}`}>
+      {statusLabels[status] ?? status}
+    </span>
   );
 }
 
 export default async function AdminUserDetailPage({ params }: Props) {
-  const [{ id }, actor] = await Promise.all([params, requireAdminUser()]);
-  const user = await getAdminUserDetail(actor.id, id);
-  if (!user) notFound();
+  const { id } = await params;
+
+  let user;
+  try {
+    user = await getAdminUserDetail(id);
+  } catch {
+    notFound();
+  }
+
+  const fullName =
+    [user.firstName, user.lastName].filter(Boolean).join(" ") || "—";
 
   return (
-    <section className="mx-auto w-full max-w-7xl">
-      <Link
-        href="/admin/users"
-        className="mb-5 inline-flex items-center gap-2 text-sm font-black text-ink-muted transition hover:text-primary"
-      >
-        <IconArrowRight className="size-4" aria-hidden="true" />
-        بازگشت به کاربران
-      </Link>
+    <section className="mx-auto w-full max-w-4xl space-y-6">
+      <nav className="flex items-center gap-2 text-xs text-ink-muted">
+        <Link href="/admin/users" className="transition hover:text-primary">
+          کاربران
+        </Link>
+        <span>/</span>
+        <span className="text-ink">{fullName}</span>
+      </nav>
 
-      <AdminPageHeader
-        title={user.displayName}
-        description="اطلاعات حساب و ارتباط‌های ثبت‌شده این کاربر با کسب‌وکارهای سامانه."
-        actions={<UserStatusBadge status={user.status} />}
-      />
-
-      <div className="mt-7 grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(18rem,0.7fr)]">
-        <section className="rounded-card border border-line bg-surface p-5 shadow-card sm:p-6">
-          <div className="flex items-center gap-4">
-            <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-primary-soft text-xl font-black text-primary">
-              {user.displayName.charAt(0) || "ک"}
-            </span>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="truncate text-lg font-black text-ink">{user.displayName}</h2>
-                {user.isAdmin ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-violet-soft px-2.5 py-1 text-[11px] font-black text-violet">
-                    <IconShieldCheck className="size-3.5" aria-hidden="true" />
-                    مدیر سیستم
-                  </span>
-                ) : null}
-              </div>
-              <p className="mt-1 break-all text-xs text-ink-muted" dir="ltr">{user.id}</p>
-            </div>
+      <div className="rounded-card border border-line bg-surface p-5 shadow-card sm:p-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-sm font-black text-primary">پنل مدیریت / کاربران</p>
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-ink">
+              {fullName}
+            </h1>
+            <p className="mt-1 text-sm text-ink-muted" dir="ltr">
+              {user.email}
+            </p>
           </div>
+          <StatusBadge status={user.status} />
+        </div>
 
-          <dl className="mt-6 grid gap-4 border-t border-line pt-6 sm:grid-cols-2">
-            <div className="rounded-xl bg-surface-subtle p-4">
-              <dt className="flex items-center gap-2 text-xs font-bold text-ink-muted">
-                <IconUser className="size-4" aria-hidden="true" /> نام و نام خانوادگی
-              </dt>
-              <dd className="mt-2 text-sm font-black text-ink">{user.displayName}</dd>
-            </div>
-            <div className="rounded-xl bg-surface-subtle p-4">
-              <dt className="flex items-center gap-2 text-xs font-bold text-ink-muted">
-                <IconMail className="size-4" aria-hidden="true" /> ایمیل
-              </dt>
-              <dd className="mt-2 break-all text-sm font-black text-ink" dir="ltr">{user.email || "ثبت نشده"}</dd>
-            </div>
-            <div className="rounded-xl bg-surface-subtle p-4">
-              <dt className="flex items-center gap-2 text-xs font-bold text-ink-muted">
-                <IconPhone className="size-4" aria-hidden="true" /> موبایل
-              </dt>
-              <dd className="mt-2 text-sm font-black text-ink" dir="ltr">{user.mobile || "ثبت نشده"}</dd>
-            </div>
-            <div className="rounded-xl bg-surface-subtle p-4">
-              <dt className="text-xs font-bold text-ink-muted">تکمیل عضویت</dt>
-              <dd className={`mt-2 text-sm font-black ${user.onboardingCompleted ? "text-success" : "text-warning"}`}>
-                {user.onboardingCompleted ? "تکمیل شده" : "تکمیل نشده"}
-              </dd>
-            </div>
-          </dl>
-        </section>
-
-        <aside className="rounded-card border border-line bg-surface p-5 shadow-card sm:p-6">
-          <h2 className="font-black text-ink">وضعیت حساب</h2>
-          <div className="mt-3 divide-y divide-line">
-            <VerificationRow label="ایمیل" verified={user.emailVerified} />
-            <VerificationRow label="شماره موبایل" verified={user.mobileVerified} />
-          </div>
-          <dl className="mt-4 space-y-4 border-t border-line pt-5 text-sm">
-            <div>
-              <dt className="text-xs text-ink-muted">تاریخ ایجاد حساب</dt>
-              <dd className="mt-1 font-bold text-ink">{formatPersianDate(user.createdAt)}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-ink-muted">آخرین ورود</dt>
-              <dd className="mt-1 font-bold text-ink">{formatPersianDate(user.lastLoginAt)}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-ink-muted">آخرین ویرایش</dt>
-              <dd className="mt-1 font-bold text-ink">{formatPersianDate(user.updatedAt)}</dd>
-            </div>
-          </dl>
-        </aside>
+        <dl className="mt-8 space-y-3 border-t border-line pt-6">
+          <InfoRow label="شناسه کاربر">
+            <span className="break-all font-mono text-xs">{user.id}</span>
+          </InfoRow>
+          <InfoRow label="نام">{user.firstName ?? "—"}</InfoRow>
+          <InfoRow label="نام خانوادگی">{user.lastName ?? "—"}</InfoRow>
+          <InfoRow label="ایمیل">
+            <span dir="ltr">{user.email}</span>
+            {user.emailVerified && (
+              <span className="mr-2 text-xs font-bold text-success">✓ تأییدشده</span>
+            )}
+          </InfoRow>
+          <InfoRow label="موبایل">
+            {user.mobile ? (
+              <>
+                <span dir="ltr">{user.mobile}</span>
+                {user.mobileVerified && (
+                  <span className="mr-2 text-xs font-bold text-success">✓ تأییدشده</span>
+                )}
+              </>
+            ) : (
+              "—"
+            )}
+          </InfoRow>
+          <InfoRow label="وضعیت">
+            <StatusBadge status={user.status} />
+          </InfoRow>
+          <InfoRow label="ادمین">
+            {user.isAdmin ? (
+              <span className="text-xs font-black text-primary">بله</span>
+            ) : (
+              <span className="text-xs text-ink-muted">خیر</span>
+            )}
+          </InfoRow>
+          <InfoRow label="اتمام آنبوردینگ">
+            {user.onboardingCompleted ? (
+              <span className="text-xs font-bold text-success">کامل‌شده</span>
+            ) : (
+              <span className="text-xs text-warning">ناتمام</span>
+            )}
+          </InfoRow>
+          <InfoRow label="تاریخ عضویت">{formatDate(user.createdAt)}</InfoRow>
+          <InfoRow label="آخرین ورود">{formatDate(user.lastLoginAt)}</InfoRow>
+        </dl>
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-2">
-        <MembershipList
-          title="ارتباط با کافه و رستوران"
-          emptyText="این کاربر هیچ عضویت ثبت‌شده‌ای در کافه یا رستوران ندارد."
-          memberships={user.cafeMemberships}
-          type="cafe"
-        />
-        <MembershipList
-          title="ارتباط با تأمین‌کننده"
-          emptyText="این کاربر هیچ عضویت ثبت‌شده‌ای نزد تأمین‌کنندگان ندارد."
-          memberships={user.supplierMemberships}
-          type="supplier"
-        />
+      <UserStatusForm userId={user.id} currentStatus={user.status} />
+
+      {user.cafeMemberships.length > 0 && (
+        <div className="rounded-xl border border-line bg-surface shadow-card">
+          <div className="border-b border-line px-4 py-3">
+            <h2 className="text-sm font-black text-ink">
+              عضویت در کافه‌ها ({user.cafeMemberships.length})
+            </h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-line text-xs text-ink-muted">
+                  <th className="px-4 py-2 text-start font-bold">نام کافه</th>
+                  <th className="px-4 py-2 text-start font-bold">نقش</th>
+                  <th className="px-4 py-2 text-start font-bold">وضعیت</th>
+                </tr>
+              </thead>
+              <tbody>
+                {user.cafeMemberships.map((membership) => (
+                  <tr
+                    key={membership.cafeId}
+                    className="border-b border-line last:border-0"
+                  >
+                    <td className="px-4 py-2.5 font-bold text-ink">
+                      {membership.cafeName || "—"}
+                    </td>
+                    <td className="px-4 py-2.5 text-ink-muted">
+                      {memberRoleLabels[membership.role] ?? membership.role}
+                    </td>
+                    <td className="px-4 py-2.5 text-ink-muted">
+                      {memberStatusLabels[membership.status] ?? membership.status}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {user.supplierMemberships.length > 0 && (
+        <div className="rounded-xl border border-line bg-surface shadow-card">
+          <div className="border-b border-line px-4 py-3">
+            <h2 className="text-sm font-black text-ink">
+              عضویت در تأمین‌کنندگان ({user.supplierMemberships.length})
+            </h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-line text-xs text-ink-muted">
+                  <th className="px-4 py-2 text-start font-bold">نام تأمین‌کننده</th>
+                  <th className="px-4 py-2 text-start font-bold">نقش</th>
+                  <th className="px-4 py-2 text-start font-bold">وضعیت</th>
+                </tr>
+              </thead>
+              <tbody>
+                {user.supplierMemberships.map((membership) => (
+                  <tr
+                    key={membership.supplierId}
+                    className="border-b border-line last:border-0"
+                  >
+                    <td className="px-4 py-2.5 font-bold text-ink">
+                      {membership.supplierName || "—"}
+                    </td>
+                    <td className="px-4 py-2.5 text-ink-muted">
+                      {memberRoleLabels[membership.role] ?? membership.role}
+                    </td>
+                    <td className="px-4 py-2.5 text-ink-muted">
+                      {memberStatusLabels[membership.status] ?? membership.status}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <div className="pb-4">
+        <Link
+          href="/admin/users"
+          className="inline-flex items-center gap-2 text-sm font-bold text-ink-muted transition hover:text-primary"
+        >
+          ← بازگشت به لیست کاربران
+        </Link>
       </div>
     </section>
   );
