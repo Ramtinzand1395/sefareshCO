@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --experimental-strip-types tests/admin-stabilization.test.mjs"
+    "test": "node --import ./tests/register-loader.mjs --test --experimental-strip-types tests/admin-stabilization.test.mjs tests/admin-catalog.test.mjs"
   },
   "dependencies": {
     "@tabler/icons-react": "^3.48.0",
