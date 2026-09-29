@@ -45,6 +45,7 @@ export async function updateCafeStatusAction(
   // 4. Revalidate affected paths
   revalidatePath("/admin/cafes");
   revalidatePath(`/admin/cafes/${parsed.data.cafeId}`);
+  revalidatePath("/admin");
 
   return { ok: true };
 }

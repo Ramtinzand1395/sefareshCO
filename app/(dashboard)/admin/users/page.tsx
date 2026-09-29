@@ -1,39 +1,25 @@
+import { IconArrowLeft, IconSearch, IconUsers } from "@tabler/icons-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
 import { AdminPageHeader } from "@/app/(dashboard)/admin/_components/admin-page-header";
 import { AdminPagination } from "@/app/(dashboard)/admin/_components/admin-pagination";
+import { AdminEmptyState } from "@/app/(dashboard)/admin/_components/admin-ui";
 import { UserStatusBadge } from "@/app/(dashboard)/admin/_components/status-badge";
-import { getAdminUserList } from "@/src/services/admin-user-service";
 import type { UserStatus } from "@/src/domain/schemas/admin-user";
+import { formatPersianDate, formatPersianNumber } from "@/src/lib/persian-format";
+import { getAdminUserList } from "@/src/services/admin-user-service";
 
 export const metadata: Metadata = { title: "کاربران — پنل مدیریت" };
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const statusOptions: { value: string; label: string }[] = [
+const statusOptions = [
   { value: "", label: "همه وضعیت‌ها" },
   { value: "active", label: "فعال" },
   { value: "pending", label: "در انتظار" },
   { value: "suspended", label: "تعلیق‌شده" },
   { value: "disabled", label: "غیرفعال" },
 ];
-
-function formatDate(iso: string) {
-  try {
-    return new Date(iso).toLocaleDateString("fa-IR");
-  } catch {
-    return iso;
-  }
-}
-
 const validStatuses = new Set(["active", "pending", "suspended", "disabled"]);
-
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
 
 type Props = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -41,14 +27,15 @@ type Props = {
 
 export default async function AdminUsersPage({ searchParams }: Props) {
   const params = await searchParams;
-
   const page = Math.max(1, Number(params.page) || 1);
   const search =
     typeof params.search === "string" ? params.search.trim() : undefined;
-  const statusParam = typeof params.status === "string" ? params.status : undefined;
-  const status = statusParam && validStatuses.has(statusParam)
-    ? (statusParam as UserStatus)
-    : undefined;
+  const statusParam =
+    typeof params.status === "string" ? params.status : undefined;
+  const status =
+    statusParam && validStatuses.has(statusParam)
+      ? (statusParam as UserStatus)
+      : undefined;
 
   const { items, pagination } = await getAdminUserList({
     page,
@@ -57,172 +44,155 @@ export default async function AdminUsersPage({ searchParams }: Props) {
     status,
   });
 
-  // Build URL helper for pagination / filters
   function buildUrl(overrides: Record<string, string | undefined>) {
-    const p = new URLSearchParams();
+    const query = new URLSearchParams();
     const merged = {
       search: search ?? "",
       status: statusParam ?? "",
       page: String(page),
       ...overrides,
     };
-    for (const [k, v] of Object.entries(merged)) {
-      if (v) p.set(k, v);
+    for (const [key, value] of Object.entries(merged)) {
+      if (value) query.set(key, value);
     }
-    return `/admin/users?${p.toString()}`;
+    return `/admin/users?${query.toString()}`;
   }
 
+  const hasFilters = Boolean(search || statusParam);
+
   return (
-    <section className="mx-auto w-full max-w-7xl space-y-6">
+    <section className="mx-auto w-full max-w-7xl space-y-5">
       <div className="rounded-card border border-line bg-surface p-5 shadow-card sm:p-8">
         <AdminPageHeader
           title="کاربران"
-          description="کاربران پلتفرم را مشاهده و مدیریت کنید."
+          description="حساب کاربران، وضعیت دسترسی و ارتباط آن‌ها با کسب‌وکارها را بررسی کنید."
+          meta={`${formatPersianNumber(pagination.total)} کاربر`}
         />
       </div>
 
-      {/* Filters */}
-      <div className="rounded-xl border border-line bg-surface p-4 shadow-card">
-        <form className="flex flex-wrap items-end gap-3">
-          {/* Search */}
-          <div className="min-w-0 flex-1">
-            <label
-              htmlFor="search"
-              className="mb-1 block text-xs font-bold text-ink-muted"
-            >
+      <div className="rounded-card border border-line bg-surface p-4 shadow-card sm:p-5">
+        <form className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_13rem_auto] sm:items-end">
+          <div className="min-w-0">
+            <label htmlFor="user-search" className="mb-1.5 block text-xs font-bold text-ink-muted">
               جستجو
             </label>
-            <input
-              id="search"
-              name="search"
-              type="text"
-              defaultValue={search ?? ""}
-              placeholder="نام، ایمیل یا موبایل…"
-              className="h-10 w-full rounded-lg border border-line bg-surface px-3 text-sm text-ink outline-none transition focus:border-primary"
-            />
+            <div className="relative">
+              <IconSearch className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-ink-muted" aria-hidden="true" />
+              <input
+                id="user-search"
+                name="search"
+                type="search"
+                defaultValue={search ?? ""}
+                placeholder="نام، ایمیل یا موبایل"
+                className="h-11 w-full rounded-control border border-line bg-surface ps-10 pe-3 text-sm text-ink outline-none transition placeholder:text-ink-muted/70 focus:border-primary"
+              />
+            </div>
           </div>
-
-          {/* Status filter */}
           <div>
-            <label
-              htmlFor="status"
-              className="mb-1 block text-xs font-bold text-ink-muted"
-            >
+            <label htmlFor="user-status" className="mb-1.5 block text-xs font-bold text-ink-muted">
               وضعیت
             </label>
             <select
-              id="status"
+              id="user-status"
               name="status"
               defaultValue={statusParam ?? ""}
-              className="h-10 rounded-lg border border-line bg-surface px-3 text-sm text-ink outline-none transition focus:border-primary"
+              className="h-11 w-full rounded-control border border-line bg-surface px-3 text-sm text-ink outline-none transition focus:border-primary"
             >
-              {statusOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
+              {statusOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
           </div>
-
-          {/* Submit */}
-          <button
-            type="submit"
-            className="h-10 rounded-lg bg-primary px-5 text-sm font-black text-white transition hover:bg-primary/90"
-          >
-            اعمال
-          </button>
-
-          {/* Reset */}
-          {(search || statusParam) && (
-            <Link
-              href="/admin/users"
-              className="flex h-10 items-center rounded-lg border border-line px-4 text-sm font-bold text-ink-muted transition hover:border-primary hover:text-primary"
-            >
-              پاک‌سازی
-            </Link>
-          )}
+          <div className="flex gap-2">
+            <button type="submit" className="h-11 flex-1 rounded-control bg-primary px-5 text-sm font-black text-white transition hover:bg-primary-hover sm:flex-none">
+              اعمال فیلتر
+            </button>
+            {hasFilters ? (
+              <Link href="/admin/users" className="inline-flex h-11 items-center rounded-control border border-line px-4 text-sm font-bold text-ink-muted transition hover:border-primary hover:text-primary">
+                پاک‌سازی
+              </Link>
+            ) : null}
+          </div>
         </form>
       </div>
 
-      {/* Table */}
-      <div className="rounded-xl border border-line bg-surface shadow-card">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-line text-xs text-ink-muted">
-                <th className="px-4 py-3 text-start font-bold">نام</th>
-                <th className="px-4 py-3 text-start font-bold">ایمیل</th>
-                <th className="hidden px-4 py-3 text-start font-bold sm:table-cell">
-                  موبایل
-                </th>
-                <th className="px-4 py-3 text-start font-bold">وضعیت</th>
-                <th className="hidden px-4 py-3 text-start font-bold md:table-cell">
-                  ادمین
-                </th>
-                <th className="hidden px-4 py-3 text-start font-bold lg:table-cell">
-                  عضویت
-                </th>
-                <th className="px-4 py-3 text-start font-bold">عملیات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-4 py-10 text-center text-sm text-ink-muted"
-                  >
-                    کاربری یافت نشد
-                  </td>
-                </tr>
-              ) : (
-                items.map((user) => (
-                  <tr
-                    key={user.id}
-                    className="border-b border-line last:border-0 transition hover:bg-surface-subtle"
-                  >
-                    <td className="px-4 py-3 font-bold text-ink">
-                      {[user.firstName, user.lastName].filter(Boolean).join(" ") ||
-                        "—"}
-                    </td>
-                    <td className="px-4 py-3 text-ink-muted" dir="ltr">
-                      {user.email}
-                    </td>
-                    <td
-                      className="hidden px-4 py-3 text-ink-muted sm:table-cell"
-                      dir="ltr"
-                    >
-                      {user.mobile ?? "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <UserStatusBadge status={user.status} />
-                    </td>
-                    <td className="hidden px-4 py-3 md:table-cell">
-                      {user.isAdmin ? (
-                        <span className="text-xs font-black text-primary">
-                          ادمین
-                        </span>
-                      ) : (
-                        <span className="text-xs text-ink-muted">—</span>
-                      )}
-                    </td>
-                    <td className="hidden px-4 py-3 text-xs text-ink-muted lg:table-cell">
-                      {formatDate(user.createdAt)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/admin/users/${user.id}`}
-                        className="text-xs font-black text-primary transition hover:text-primary/80"
-                      >
-                        جزئیات
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+      <div className="overflow-hidden rounded-card border border-line bg-surface shadow-card">
+        <div className="flex items-center justify-between border-b border-line px-5 py-4">
+          <div>
+            <h2 className="text-sm font-black text-ink">فهرست کاربران</h2>
+            <p className="mt-1 text-xs text-ink-muted">
+              {hasFilters ? "نتیجهٔ جستجو و فیلتر اعمال‌شده" : "جدیدترین کاربران در ابتدای فهرست"}
+            </p>
+          </div>
+          <IconUsers className="size-5 text-primary" aria-hidden="true" />
         </div>
+
+        {items.length === 0 ? (
+          <AdminEmptyState
+            title={hasFilters ? "کاربری با این مشخصات پیدا نشد" : "هنوز کاربری ثبت نشده است"}
+            description={hasFilters ? "عبارت جستجو یا وضعیت انتخاب‌شده را تغییر دهید." : undefined}
+          />
+        ) : (
+          <>
+            <div className="divide-y divide-line md:hidden">
+              {items.map((user) => {
+                const name = [user.firstName, user.lastName].filter(Boolean).join(" ") || "بدون نام";
+                return (
+                  <article key={user.id} className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-black text-ink">{name}</p>
+                        <p className="mt-1 truncate text-xs text-ink-muted" dir="ltr">{user.email}</p>
+                      </div>
+                      <UserStatusBadge status={user.status} />
+                    </div>
+                    <dl className="mt-4 grid grid-cols-2 gap-3 text-xs">
+                      <div><dt className="text-ink-muted">موبایل</dt><dd className="mt-1 text-ink" dir="ltr">{user.mobile ?? "—"}</dd></div>
+                      <div><dt className="text-ink-muted">تاریخ عضویت</dt><dd className="mt-1 text-ink">{formatPersianDate(user.createdAt)}</dd></div>
+                    </dl>
+                    <Link href={`/admin/users/${user.id}`} className="mt-4 inline-flex min-h-10 items-center gap-1.5 text-xs font-black text-primary">
+                      مشاهده جزئیات <IconArrowLeft className="size-4" aria-hidden="true" />
+                    </Link>
+                  </article>
+                );
+              })}
+            </div>
+
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full text-sm">
+                <thead className="bg-surface-subtle text-xs text-ink-muted">
+                  <tr>
+                    <th className="px-5 py-3 text-start font-bold">کاربر</th>
+                    <th className="px-5 py-3 text-start font-bold">موبایل</th>
+                    <th className="px-5 py-3 text-start font-bold">وضعیت</th>
+                    <th className="px-5 py-3 text-start font-bold">نوع حساب</th>
+                    <th className="px-5 py-3 text-start font-bold">عضویت</th>
+                    <th className="px-5 py-3 text-start font-bold"><span className="sr-only">عملیات</span></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {items.map((user) => (
+                    <tr key={user.id} className="transition hover:bg-surface-subtle">
+                      <td className="px-5 py-4">
+                        <p className="font-black text-ink">{[user.firstName, user.lastName].filter(Boolean).join(" ") || "بدون نام"}</p>
+                        <p className="mt-1 text-xs text-ink-muted" dir="ltr">{user.email}</p>
+                      </td>
+                      <td className="px-5 py-4 text-ink-muted" dir="ltr">{user.mobile ?? "—"}</td>
+                      <td className="px-5 py-4"><UserStatusBadge status={user.status} /></td>
+                      <td className="px-5 py-4 text-xs font-bold text-ink-muted">{user.isAdmin ? "مدیر سیستم" : "کاربر"}</td>
+                      <td className="px-5 py-4 text-xs text-ink-muted">{formatPersianDate(user.createdAt)}</td>
+                      <td className="px-5 py-4 text-end">
+                        <Link href={`/admin/users/${user.id}`} aria-label={`مشاهده جزئیات ${user.email}`} className="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap text-xs font-black text-primary transition hover:text-primary-hover">
+                          جزئیات <IconArrowLeft className="size-4" aria-hidden="true" />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
 
         <AdminPagination
           pagination={pagination}
