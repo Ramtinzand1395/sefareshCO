@@ -1,4 +1,6 @@
-import { Schema, model, models } from "mongoose";
+import mongoose from "mongoose";
+
+const { Schema, model, models } = mongoose;
 
 const supplierSchema = new Schema(
   {
@@ -77,6 +79,12 @@ const supplierSchema = new Schema(
 
     verifiedAt: {
       type: Date,
+    },
+
+    verifiedByAdminId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
     },
 
     minimumOrderAmount: {

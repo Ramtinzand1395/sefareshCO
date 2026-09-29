@@ -1,7 +1,12 @@
 import "server-only";
 
 import { requireAdmin } from "@/src/lib/admin-helpers";
+import { adminEntityIdSchema } from "@/src/domain/schemas/admin-common";
 import type { UserStatus } from "@/src/domain/schemas/admin-user";
+import {
+  createPaginationMeta,
+  type AdminPaginationMeta,
+} from "@/src/lib/admin-query";
 import {
   findAdminUserList,
   findAdminUserDetail,
@@ -15,26 +20,23 @@ import {
 // ---------------------------------------------------------------------------
 
 export class UserNotFoundError extends Error {}
+export class InvalidUserIdError extends Error {}
 export class SelfStatusChangeError extends Error {}
-export class StatusUpdateFailedError extends Error {}
 
 // ---------------------------------------------------------------------------
 // Pagination DTO
 // ---------------------------------------------------------------------------
 
-export type PaginationMeta = {
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-};
-
 export type AdminUserListDTO = {
   items: AdminUserListItemDTO[];
-  pagination: PaginationMeta;
+  pagination: AdminPaginationMeta;
 };
+
+function assertValidUserId(userId: string) {
+  if (!adminEntityIdSchema.safeParse(userId).success) {
+    throw new InvalidUserIdError();
+  }
+}
 
 // ---------------------------------------------------------------------------
 // List users
@@ -51,20 +53,9 @@ export async function getAdminUserList(query: {
 
   const { items, total } = await findAdminUserList(query);
 
-  const page = Math.max(1, query.page);
-  const pageSize = Math.min(Math.max(1, query.pageSize), 50);
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-
   return {
     items,
-    pagination: {
-      page,
-      pageSize,
-      total,
-      totalPages,
-      hasNextPage: page < totalPages,
-      hasPreviousPage: page > 1,
-    },
+    pagination: createPaginationMeta(query.page, query.pageSize, total),
   };
 }
 
@@ -76,6 +67,7 @@ export async function getAdminUserDetail(
   userId: string,
 ): Promise<AdminUserDetailDTO> {
   await requireAdmin();
+  assertValidUserId(userId);
 
   const user = await findAdminUserDetail(userId);
   if (!user) throw new UserNotFoundError();
@@ -92,6 +84,7 @@ export async function updateAdminUserStatus(
   newStatus: UserStatus,
 ): Promise<void> {
   const admin = await requireAdmin();
+  assertValidUserId(userId);
 
   // Guard: admin cannot suspend/disable themselves
   if (admin.userId === userId) {
@@ -100,10 +93,6 @@ export async function updateAdminUserStatus(
     }
   }
 
-  // Verify target user exists
-  const user = await findAdminUserDetail(userId);
-  if (!user) throw new UserNotFoundError();
-
   const updated = await updateUserStatus(userId, newStatus);
-  if (!updated) throw new StatusUpdateFailedError();
+  if (!updated) throw new UserNotFoundError();
 }

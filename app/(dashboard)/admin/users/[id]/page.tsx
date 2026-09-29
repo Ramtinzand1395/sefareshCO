@@ -3,7 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { UserStatusForm } from "@/app/(dashboard)/admin/users/user-status-form";
-import { getAdminUserDetail } from "@/src/services/admin-user-service";
+import {
+  getAdminUserDetail,
+  InvalidUserIdError,
+  UserNotFoundError,
+} from "@/src/services/admin-user-service";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -14,8 +18,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const name =
       [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email;
     return { title: `${name} — کاربران — پنل مدیریت` };
-  } catch {
-    return { title: "کاربر یافت نشد" };
+  } catch (error) {
+    if (error instanceof UserNotFoundError || error instanceof InvalidUserIdError) {
+      return { title: "کاربر یافت نشد" };
+    }
+    throw error;
   }
 }
 
@@ -88,8 +95,11 @@ export default async function AdminUserDetailPage({ params }: Props) {
   let user;
   try {
     user = await getAdminUserDetail(id);
-  } catch {
-    notFound();
+  } catch (error) {
+    if (error instanceof UserNotFoundError || error instanceof InvalidUserIdError) {
+      notFound();
+    }
+    throw error;
   }
 
   const fullName =

@@ -1,7 +1,12 @@
 import "server-only";
 
 import { requireAdmin } from "@/src/lib/admin-helpers";
+import { adminEntityIdSchema } from "@/src/domain/schemas/admin-common";
 import type { CafeStatus } from "@/src/domain/schemas/admin-cafe";
+import {
+  createPaginationMeta,
+  type AdminPaginationMeta,
+} from "@/src/lib/admin-query";
 import {
   findAdminCafeList,
   findAdminCafeDetail,
@@ -15,25 +20,22 @@ import {
 // ---------------------------------------------------------------------------
 
 export class CafeNotFoundError extends Error {}
-export class CafeStatusUpdateFailedError extends Error {}
+export class InvalidCafeIdError extends Error {}
 
 // ---------------------------------------------------------------------------
 // Pagination DTO
 // ---------------------------------------------------------------------------
 
-export type CafePaginationMeta = {
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-};
-
 export type AdminCafeListDTO = {
   items: AdminCafeListItemDTO[];
-  pagination: CafePaginationMeta;
+  pagination: AdminPaginationMeta;
 };
+
+function assertValidCafeId(cafeId: string) {
+  if (!adminEntityIdSchema.safeParse(cafeId).success) {
+    throw new InvalidCafeIdError();
+  }
+}
 
 // ---------------------------------------------------------------------------
 // List
@@ -47,23 +49,11 @@ export async function getAdminCafeList(query: {
 }): Promise<AdminCafeListDTO> {
   await requireAdmin();
 
-  const page = Math.max(1, query.page);
-  const pageSize = Math.min(Math.max(1, query.pageSize), 50);
-
-  const { items, total } = await findAdminCafeList({ ...query, page, pageSize });
-
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const { items, total } = await findAdminCafeList(query);
 
   return {
     items,
-    pagination: {
-      page,
-      pageSize,
-      total,
-      totalPages,
-      hasNextPage: page < totalPages,
-      hasPreviousPage: page > 1,
-    },
+    pagination: createPaginationMeta(query.page, query.pageSize, total),
   };
 }
 
@@ -75,6 +65,7 @@ export async function getAdminCafeDetail(
   cafeId: string,
 ): Promise<AdminCafeDetailDTO> {
   await requireAdmin();
+  assertValidCafeId(cafeId);
 
   const cafe = await findAdminCafeDetail(cafeId);
   if (!cafe) throw new CafeNotFoundError();
@@ -91,10 +82,8 @@ export async function updateAdminCafeStatus(
   status: CafeStatus,
 ): Promise<void> {
   await requireAdmin();
-
-  const cafe = await findAdminCafeDetail(cafeId);
-  if (!cafe) throw new CafeNotFoundError();
+  assertValidCafeId(cafeId);
 
   const updated = await updateCafeStatus(cafeId, status);
-  if (!updated) throw new CafeStatusUpdateFailedError();
+  if (!updated) throw new CafeNotFoundError();
 }

@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { AdminPageHeader } from "@/app/(dashboard)/admin/_components/admin-page-header";
+import { AdminPagination } from "@/app/(dashboard)/admin/_components/admin-pagination";
+import { UserStatusBadge } from "@/app/(dashboard)/admin/_components/status-badge";
 import { getAdminUserList } from "@/src/services/admin-user-service";
 import type { UserStatus } from "@/src/domain/schemas/admin-user";
 
@@ -9,13 +12,6 @@ export const metadata: Metadata = { title: "کاربران — پنل مدیری
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-const statusLabels: Record<string, string> = {
-  active: "فعال",
-  pending: "در انتظار",
-  suspended: "تعلیق‌شده",
-  disabled: "غیرفعال",
-};
 
 const statusOptions: { value: string; label: string }[] = [
   { value: "", label: "همه وضعیت‌ها" },
@@ -78,15 +74,11 @@ export default async function AdminUsersPage({ searchParams }: Props) {
 
   return (
     <section className="mx-auto w-full max-w-7xl space-y-6">
-      {/* Header */}
       <div className="rounded-card border border-line bg-surface p-5 shadow-card sm:p-8">
-        <p className="text-sm font-black text-primary">پنل مدیریت</p>
-        <h1 className="mt-2 text-2xl font-black tracking-tight text-ink sm:text-3xl">
-          کاربران
-        </h1>
-        <p className="mt-3 max-w-2xl text-sm leading-7 text-ink-muted sm:text-base">
-          کاربران پلتفرم را مشاهده و مدیریت کنید.
-        </p>
+        <AdminPageHeader
+          title="کاربران"
+          description="کاربران پلتفرم را مشاهده و مدیریت کنید."
+        />
       </div>
 
       {/* Filters */}
@@ -232,57 +224,13 @@ export default async function AdminUsersPage({ searchParams }: Props) {
           </table>
         </div>
 
-        {/* Pagination */}
-        {pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-line px-4 py-3">
-            <p className="text-xs text-ink-muted">
-              صفحه {pagination.page.toLocaleString("fa-IR")} از{" "}
-              {pagination.totalPages.toLocaleString("fa-IR")} — مجموع{" "}
-              {pagination.total.toLocaleString("fa-IR")} کاربر
-            </p>
-            <div className="flex gap-2">
-              {pagination.hasPreviousPage && (
-                <Link
-                  href={buildUrl({ page: String(pagination.page - 1) })}
-                  className="rounded-lg border border-line px-3 py-1.5 text-xs font-bold text-ink-muted transition hover:border-primary hover:text-primary"
-                >
-                  قبلی
-                </Link>
-              )}
-              {pagination.hasNextPage && (
-                <Link
-                  href={buildUrl({ page: String(pagination.page + 1) })}
-                  className="rounded-lg border border-line px-3 py-1.5 text-xs font-bold text-ink-muted transition hover:border-primary hover:text-primary"
-                >
-                  بعدی
-                </Link>
-              )}
-            </div>
-          </div>
-        )}
+        <AdminPagination
+          pagination={pagination}
+          entityLabel="کاربر"
+          previousHref={buildUrl({ page: String(pagination.page - 1) })}
+          nextHref={buildUrl({ page: String(pagination.page + 1) })}
+        />
       </div>
     </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Status badge component
-// ---------------------------------------------------------------------------
-
-function UserStatusBadge({ status }: { status: string }) {
-  const colorMap: Record<string, string> = {
-    active: "bg-success-soft text-success",
-    pending: "bg-warning-soft text-warning",
-    suspended: "bg-danger-soft text-danger",
-    disabled: "bg-surface-subtle text-ink-muted",
-  };
-  const colors = colorMap[status] ?? "bg-surface-subtle text-ink-muted";
-
-  return (
-    <span
-      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-black ${colors}`}
-    >
-      {statusLabels[status] ?? status}
-    </span>
   );
 }

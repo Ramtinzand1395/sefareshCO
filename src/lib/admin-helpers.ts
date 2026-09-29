@@ -3,6 +3,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { isActiveAdmin } from "@/src/domain/admin-access";
 import { findUserById } from "@/src/repositories/user-repository";
 
 export type AdminIdentity = {
@@ -19,7 +20,7 @@ export type AdminIdentity = {
  * 2. Verifies the user is authenticated
  * 3. Resolves the real user from the database (never trusts session alone)
  * 4. Checks `isAdmin === true`
- * 5. Rejects suspended / disabled users
+ * 5. Requires the account itself to be active
  * 6. Returns a minimal, serializable identity
  */
 export async function requireAdmin(): Promise<AdminIdentity> {
@@ -29,11 +30,7 @@ export async function requireAdmin(): Promise<AdminIdentity> {
   const user = await findUserById(session.user.id);
   if (!user) redirect("/login");
 
-  if (!user.isAdmin) redirect("/login");
-
-  if (user.status === "suspended" || user.status === "disabled") {
-    redirect("/login");
-  }
+  if (!isActiveAdmin(user)) redirect("/login");
 
   return {
     userId: user.id,

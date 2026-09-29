@@ -7,7 +7,6 @@ import { requireAdmin } from "@/src/lib/admin-helpers";
 import {
   updateAdminCafeStatus,
   CafeNotFoundError,
-  CafeStatusUpdateFailedError,
 } from "@/src/services/admin-cafe-service";
 
 export type AdminCafeActionState = {
@@ -39,9 +38,6 @@ export async function updateCafeStatusAction(
   } catch (error) {
     if (error instanceof CafeNotFoundError) {
       return { error: "کافه یافت نشد" };
-    }
-    if (error instanceof CafeStatusUpdateFailedError) {
-      return { error: "تغییر وضعیت انجام نشد؛ لطفاً دوباره تلاش کنید" };
     }
     return { error: "خطای غیرمنتظره؛ لطفاً دوباره تلاش کنید" };
   }

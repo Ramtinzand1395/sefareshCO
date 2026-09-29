@@ -1,10 +1,3 @@
-import {
-  IconBuildingStore,
-  IconClock,
-  IconTruckDelivery,
-  IconUserCheck,
-  IconUsers,
-} from "@tabler/icons-react";
 import type { Metadata } from "next";
 
 import { PortalPage } from "@/app/(dashboard)/portal-page";

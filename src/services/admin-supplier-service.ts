@@ -1,10 +1,15 @@
 import "server-only";
 
 import { requireAdmin } from "@/src/lib/admin-helpers";
+import { adminEntityIdSchema } from "@/src/domain/schemas/admin-common";
 import type {
   SupplierStatus,
   SupplierVerificationAction,
 } from "@/src/domain/schemas/admin-supplier";
+import {
+  createPaginationMeta,
+  type AdminPaginationMeta,
+} from "@/src/lib/admin-query";
 import {
   findAdminSupplierList,
   findAdminSupplierDetail,
@@ -19,26 +24,22 @@ import {
 // ---------------------------------------------------------------------------
 
 export class SupplierNotFoundError extends Error {}
-export class SupplierStatusUpdateFailedError extends Error {}
-export class SupplierVerificationUpdateFailedError extends Error {}
+export class InvalidSupplierIdError extends Error {}
 
 // ---------------------------------------------------------------------------
 // Pagination DTO
 // ---------------------------------------------------------------------------
 
-export type SupplierPaginationMeta = {
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-};
-
 export type AdminSupplierListDTO = {
   items: AdminSupplierListItemDTO[];
-  pagination: SupplierPaginationMeta;
+  pagination: AdminPaginationMeta;
 };
+
+function assertValidSupplierId(supplierId: string) {
+  if (!adminEntityIdSchema.safeParse(supplierId).success) {
+    throw new InvalidSupplierIdError();
+  }
+}
 
 // ---------------------------------------------------------------------------
 // List
@@ -53,27 +54,11 @@ export async function getAdminSupplierList(query: {
 }): Promise<AdminSupplierListDTO> {
   await requireAdmin();
 
-  const page = Math.max(1, query.page);
-  const pageSize = Math.min(Math.max(1, query.pageSize), 50);
-
-  const { items, total } = await findAdminSupplierList({
-    ...query,
-    page,
-    pageSize,
-  });
-
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const { items, total } = await findAdminSupplierList(query);
 
   return {
     items,
-    pagination: {
-      page,
-      pageSize,
-      total,
-      totalPages,
-      hasNextPage: page < totalPages,
-      hasPreviousPage: page > 1,
-    },
+    pagination: createPaginationMeta(query.page, query.pageSize, total),
   };
 }
 
@@ -85,6 +70,7 @@ export async function getAdminSupplierDetail(
   supplierId: string,
 ): Promise<AdminSupplierDetailDTO> {
   await requireAdmin();
+  assertValidSupplierId(supplierId);
 
   const supplier = await findAdminSupplierDetail(supplierId);
   if (!supplier) throw new SupplierNotFoundError();
@@ -101,12 +87,10 @@ export async function updateAdminSupplierStatus(
   status: SupplierStatus,
 ): Promise<void> {
   await requireAdmin();
-
-  const supplier = await findAdminSupplierDetail(supplierId);
-  if (!supplier) throw new SupplierNotFoundError();
+  assertValidSupplierId(supplierId);
 
   const updated = await updateSupplierStatus(supplierId, status);
-  if (!updated) throw new SupplierStatusUpdateFailedError();
+  if (!updated) throw new SupplierNotFoundError();
 }
 
 // ---------------------------------------------------------------------------
@@ -118,9 +102,7 @@ export async function updateAdminSupplierVerification(
   action: SupplierVerificationAction,
 ): Promise<void> {
   const admin = await requireAdmin();
-
-  const supplier = await findAdminSupplierDetail(supplierId);
-  if (!supplier) throw new SupplierNotFoundError();
+  assertValidSupplierId(supplierId);
 
   const isVerified = action === "verified";
   const updated = await updateSupplierVerification(
@@ -128,5 +110,5 @@ export async function updateAdminSupplierVerification(
     isVerified,
     admin.userId,
   );
-  if (!updated) throw new SupplierVerificationUpdateFailedError();
+  if (!updated) throw new SupplierNotFoundError();
 }

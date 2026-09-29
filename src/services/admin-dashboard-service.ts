@@ -2,12 +2,7 @@ import "server-only";
 
 import { requireAdmin } from "@/src/lib/admin-helpers";
 import {
-  getUserCounts,
-  getCafeCounts,
-  getSupplierCounts,
-  getLatestUsers,
-  getLatestCafes,
-  getLatestSuppliers,
+  getAdminDashboardOverviewRecord,
   type UserCountsDTO,
   type CafeCountsDTO,
   type SupplierCountsDTO,
@@ -33,30 +28,12 @@ export type AdminDashboardOverviewDTO = {
  * Fetches the full admin dashboard overview.
  *
  * 1. Enforces admin authorization (database-backed)
- * 2. Runs all count + recent-activity queries in parallel
+ * 2. Fetches counts and recent activity in three parallel aggregate requests
  * 3. Returns a fully serializable DTO with no sensitive data
  */
 export async function getAdminDashboardOverview(): Promise<AdminDashboardOverviewDTO> {
   // Authorization – throws redirect if not admin
   await requireAdmin();
 
-  // Run all independent queries in parallel for performance
-  const [users, cafes, suppliers, latestUsers, latestCafes, latestSuppliers] =
-    await Promise.all([
-      getUserCounts(),
-      getCafeCounts(),
-      getSupplierCounts(),
-      getLatestUsers(5),
-      getLatestCafes(5),
-      getLatestSuppliers(5),
-    ]);
-
-  return {
-    users,
-    cafes,
-    suppliers,
-    latestUsers,
-    latestCafes,
-    latestSuppliers,
-  };
+  return getAdminDashboardOverviewRecord(5);
 }

@@ -8,7 +8,6 @@ import {
   updateAdminUserStatus,
   SelfStatusChangeError,
   UserNotFoundError,
-  StatusUpdateFailedError,
 } from "@/src/services/admin-user-service";
 
 export type AdminUserActionState = {
@@ -43,9 +42,6 @@ export async function updateUserStatusAction(
     }
     if (error instanceof UserNotFoundError) {
       return { error: "کاربر یافت نشد" };
-    }
-    if (error instanceof StatusUpdateFailedError) {
-      return { error: "تغییر وضعیت انجام نشد؛ لطفاً دوباره تلاش کنید" };
     }
     return { error: "خطای غیرمنتظره؛ لطفاً دوباره تلاش کنید" };
   }

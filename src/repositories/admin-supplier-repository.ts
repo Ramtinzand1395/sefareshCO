@@ -1,8 +1,15 @@
+import { Types } from "mongoose";
+
 import dbConnect from "@/lib/mongodb";
 import { Supplier } from "@/model/supplier";
 import { SupplierMember } from "@/model/supplier-member";
 import { User } from "@/model/user";
 import type { SupplierStatus } from "@/src/domain/schemas/admin-supplier";
+import {
+  escapeAdminSearch,
+  normalizeAdminPagination,
+} from "@/src/lib/admin-query";
+import { matchedExistingDocument } from "@/src/repositories/update-result";
 
 // ---------------------------------------------------------------------------
 // DTOs – fully serializable, no ObjectId / Mongoose Document
@@ -85,7 +92,7 @@ type SupplierDetailDoc = SupplierListDoc & {
   minimumOrderAmount?: number;
   description?: string;
   logoUrl?: string;
-  verifiedByAdminId?: string;
+  verifiedByAdminId?: { toString(): string } | null;
 };
 
 type SupplierMemberLeanDoc = {
@@ -107,12 +114,7 @@ type UserLeanDoc = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const MAX_PAGE_SIZE = 50;
 const notDeleted = { deletedAt: null };
-
-function escapeRegex(str: string) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 function toListItem(doc: SupplierListDoc): AdminSupplierListItemDTO {
   return {
@@ -139,9 +141,10 @@ export async function findAdminSupplierList(
 ): Promise<AdminSupplierListResult> {
   await dbConnect();
 
-  const page = Math.max(1, query.page);
-  const pageSize = Math.min(Math.max(1, query.pageSize), MAX_PAGE_SIZE);
-  const skip = (page - 1) * pageSize;
+  const { pageSize, skip } = normalizeAdminPagination(
+    query.page,
+    query.pageSize,
+  );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const filter: Record<string, any> = { ...notDeleted };
@@ -155,7 +158,7 @@ export async function findAdminSupplierList(
   }
 
   if (query.search) {
-    const escaped = escapeRegex(query.search.trim());
+    const escaped = escapeAdminSearch(query.search);
     if (escaped) {
       const regex = { $regex: escaped, $options: "i" };
       filter.$or = [
@@ -175,7 +178,7 @@ export async function findAdminSupplierList(
   const [docs, total] = await Promise.all([
     Supplier.find(filter)
       .select(projection)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .skip(skip)
       .limit(pageSize)
       .lean(),
@@ -193,6 +196,7 @@ export async function findAdminSupplierList(
 export async function findAdminSupplierDetail(
   supplierId: string,
 ): Promise<AdminSupplierDetailDTO | null> {
+  if (!Types.ObjectId.isValid(supplierId)) return null;
   await dbConnect();
 
   const supplier = (await Supplier.findOne({
@@ -257,7 +261,7 @@ export async function findAdminSupplierDetail(
     status: supplier.status ?? "pending",
     isVerified: supplier.isVerified ?? false,
     verifiedAt: supplier.verifiedAt ? supplier.verifiedAt.toISOString() : null,
-    verifiedByAdminId: supplier.verifiedByAdminId,
+    verifiedByAdminId: supplier.verifiedByAdminId?.toString(),
     minimumOrderAmount: supplier.minimumOrderAmount ?? 0,
     description: supplier.description,
     logoUrl: supplier.logoUrl,
@@ -275,12 +279,13 @@ export async function updateSupplierStatus(
   supplierId: string,
   status: SupplierStatus,
 ): Promise<boolean> {
+  if (!Types.ObjectId.isValid(supplierId)) return false;
   await dbConnect();
   const result = await Supplier.updateOne(
     { _id: supplierId, ...notDeleted },
     { $set: { status } },
   );
-  return result.modifiedCount > 0;
+  return matchedExistingDocument(result);
 }
 
 // ---------------------------------------------------------------------------
@@ -292,6 +297,10 @@ export async function updateSupplierVerification(
   isVerified: boolean,
   adminId: string,
 ): Promise<boolean> {
+  if (!Types.ObjectId.isValid(supplierId)) return false;
+  if (!Types.ObjectId.isValid(adminId)) {
+    throw new TypeError("Invalid admin identifier");
+  }
   await dbConnect();
   const result = await Supplier.updateOne(
     { _id: supplierId, ...notDeleted },
@@ -304,5 +313,5 @@ export async function updateSupplierVerification(
       },
     },
   );
-  return result.modifiedCount > 0;
+  return matchedExistingDocument(result);
 }

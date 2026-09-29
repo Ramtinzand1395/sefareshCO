@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { adminEntityIdSchema } from "@/src/domain/schemas/admin-common";
+
 export const userStatusValues = [
   "active",
   "pending",
@@ -10,7 +12,7 @@ export const userStatusValues = [
 export type UserStatus = (typeof userStatusValues)[number];
 
 export const updateUserStatusSchema = z.object({
-  userId: z.string().min(1, "شناسه کاربر الزامی است"),
+  userId: adminEntityIdSchema,
   status: z.enum(userStatusValues, {
     message: "وضعیت انتخاب‌شده معتبر نیست",
   }),
