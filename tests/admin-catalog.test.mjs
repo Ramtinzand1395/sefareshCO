@@ -103,6 +103,48 @@ test("createProductSchema requires unit, categoryId and trims inputs", () => {
   assert.equal(missingUnit.success, false);
 });
 
+test("FormData null/empty fields are accepted for optional attributes in categories and products", () => {
+  const catId = new Types.ObjectId().toString();
+
+  // Category with nulls and empty strings as FormData provides
+  const catResult = createCategorySchema.safeParse({
+    name: "دان قهوه",
+    slug: "coffee-beans",
+    description: null,
+    parentId: "",
+    displayOrder: "0",
+    icon: null,
+    image: null,
+    status: "active",
+  });
+  assert.equal(catResult.success, true);
+  if (catResult.success) {
+    assert.equal(catResult.data.parentId, null);
+    assert.equal(catResult.data.description, undefined);
+  }
+
+  // Product with nulls and empty strings as FormData provides
+  const prodResult = createProductSchema.safeParse({
+    name: "قهوه اتیوپی",
+    slug: "ethiopia-coffee",
+    categoryId: catId,
+    brand: null,
+    unit: "کیلوگرم",
+    description: null,
+    barcode: "",
+    sku: null,
+    images: [],
+    status: "draft",
+    attributes: [],
+  });
+  assert.equal(prodResult.success, true);
+  if (prodResult.success) {
+    assert.equal(prodResult.data.brand, undefined);
+    assert.equal(prodResult.data.barcode, undefined);
+    assert.equal(prodResult.data.sku, undefined);
+  }
+});
+
 test("status schemas reject unrecognized statuses", () => {
   const catId = new Types.ObjectId().toString();
   const prodId = new Types.ObjectId().toString();

@@ -30,6 +30,7 @@ export type SupplierOfferListItemDTO = {
   minOrderQuantity: number;
   deliveryDays: number;
   status: OfferStatus;
+  isEligibleForPurchase: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -41,7 +42,7 @@ export type SupplierOfferListResult = {
   total: number;
 };
 
-// eligible for buyer view: active offer, stock>0, active+verified supplier, active+not-deleted product+category
+// Eligible for buyer view (RFQ / marketplace browsing in future phases)
 export type EligibleOfferDTO = SupplierOfferListItemDTO & {
   supplierName: string;
 };
@@ -60,10 +61,48 @@ type OfferLeanDoc = {
   updatedAt?: Date;
 };
 
-const notDeletedProduct = { deletedAt: null };
+const notDeleted = { deletedAt: null };
 
 // ---------------------------------------------------------------------------
-// Supplier-scoped list (paginated)
+// Category Tree Ancestors Helper
+// Verifies that a category and all its ancestors are active and not deleted
+// ---------------------------------------------------------------------------
+
+export async function isCategoryBranchActive(
+  categoryId: string | Types.ObjectId,
+): Promise<boolean> {
+  let currentId: Types.ObjectId | null =
+    typeof categoryId === "string" ? new Types.ObjectId(categoryId) : categoryId;
+
+  const visited = new Set<string>();
+
+  while (currentId) {
+    const idStr = currentId.toString();
+    if (visited.has(idStr)) return false; // Cycle detected
+    visited.add(idStr);
+
+    const cat = (await Category.findOne({
+      _id: currentId,
+      ...notDeleted,
+    })
+      .select("status parentId")
+      .lean()) as unknown as {
+      status?: string;
+      parentId?: Types.ObjectId | null;
+    } | null;
+
+    if (!cat || cat.status !== "active") {
+      return false;
+    }
+
+    currentId = cat.parentId ? new Types.ObjectId(cat.parentId) : null;
+  }
+
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Supplier-scoped list (paginated, stable sort, search on product name/sku)
 // ---------------------------------------------------------------------------
 
 export async function findSupplierOfferList(
@@ -92,6 +131,31 @@ export async function findSupplierOfferList(
     filter.status = query.status;
   }
 
+  const trimmedSearch = query.search?.trim();
+
+  // If search is provided, search against Product first to support accurate pagination
+  if (trimmedSearch) {
+    const escaped = escapeAdminSearch(trimmedSearch);
+    if (escaped) {
+      const matchingProducts = (await Product.find({
+        $or: [
+          { name: { $regex: escaped, $options: "i" } },
+          { sku: { $regex: escaped, $options: "i" } },
+          { brand: { $regex: escaped, $options: "i" } },
+        ],
+        ...notDeleted,
+      })
+        .select("_id")
+        .lean()) as unknown as Array<{ _id: Types.ObjectId }>;
+
+      if (matchingProducts.length === 0) {
+        return { items: [], total: 0 };
+      }
+
+      filter.productId = { $in: matchingProducts.map((p) => p._id) };
+    }
+  }
+
   const [offerDocs, total] = await Promise.all([
     SupplierOffer.find(filter)
       .sort({ createdAt: -1, _id: -1 })
@@ -102,30 +166,17 @@ export async function findSupplierOfferList(
   ]);
 
   const rawOffers = offerDocs as unknown as OfferLeanDoc[];
-
   if (rawOffers.length === 0) return { items: [], total };
 
-  // Batch-fetch product info (prevent N+1)
+  // Batch-fetch product details to avoid N+1 queries
   const productIds = Array.from(
     new Set(rawOffers.map((o) => o.productId.toString())),
   );
 
-  const search = query.search?.trim() ?? "";
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const productFilter: Record<string, any> = {
+  const productDocs = (await Product.find({
     _id: { $in: productIds.map((id) => new Types.ObjectId(id)) },
-    ...notDeletedProduct,
-  };
-
-  if (search) {
-    const escaped = escapeAdminSearch(search);
-    if (escaped) {
-      productFilter.$or = [{ name: { $regex: escaped, $options: "i" } }];
-    }
-  }
-
-  const productDocs = (await Product.find(productFilter)
+    ...notDeleted,
+  })
     .select("name unit categoryId")
     .lean()) as unknown as Array<{
     _id: { toString(): string };
@@ -152,7 +203,7 @@ export async function findSupplierOfferList(
   );
   const categoryDocs = (await Category.find({
     _id: { $in: categoryIds.map((id) => new Types.ObjectId(id)) },
-    deletedAt: null,
+    ...notDeleted,
   })
     .select("name")
     .lean()) as unknown as Array<{
@@ -165,14 +216,11 @@ export async function findSupplierOfferList(
     categoryMap.set(c._id.toString(), c.name);
   }
 
-  // Filter offers by matching products (for search)
-  const matchingProductIds = new Set(productMap.keys());
-  const filteredOffers = search
-    ? rawOffers.filter((o) => matchingProductIds.has(o.productId.toString()))
-    : rawOffers;
-
-  const items: SupplierOfferListItemDTO[] = filteredOffers.map((offer) => {
+  const items: SupplierOfferListItemDTO[] = rawOffers.map((offer) => {
     const prodInfo = productMap.get(offer.productId.toString());
+    const isEligibleForPurchase =
+      offer.status === "active" && offer.stock >= offer.minOrderQuantity;
+
     return {
       id: offer._id.toString(),
       supplierId: offer.supplierId.toString(),
@@ -187,6 +235,7 @@ export async function findSupplierOfferList(
       minOrderQuantity: offer.minOrderQuantity,
       deliveryDays: offer.deliveryDays,
       status: offer.status,
+      isEligibleForPurchase,
       createdAt: (offer.createdAt ?? new Date()).toISOString(),
       updatedAt: (offer.updatedAt ?? new Date()).toISOString(),
     };
@@ -196,7 +245,7 @@ export async function findSupplierOfferList(
 }
 
 // ---------------------------------------------------------------------------
-// Single offer (scoped to supplierId for ownership)
+// Single offer (strictly scoped to supplierId for tenant isolation)
 // ---------------------------------------------------------------------------
 
 export async function findSupplierOfferById(
@@ -217,7 +266,7 @@ export async function findSupplierOfferById(
   const productId = doc.productId.toString();
   const productDoc = (await Product.findOne({
     _id: new Types.ObjectId(productId),
-    ...notDeletedProduct,
+    ...notDeleted,
   })
     .select("name unit categoryId")
     .lean()) as unknown as {
@@ -231,12 +280,15 @@ export async function findSupplierOfferById(
   if (productDoc?.categoryId) {
     const catDoc = (await Category.findOne({
       _id: productDoc.categoryId,
-      deletedAt: null,
+      ...notDeleted,
     })
       .select("name")
       .lean()) as unknown as { name: string } | null;
     categoryName = catDoc?.name;
   }
+
+  const isEligibleForPurchase =
+    doc.status === "active" && doc.stock >= doc.minOrderQuantity;
 
   return {
     id: doc._id.toString(),
@@ -250,13 +302,14 @@ export async function findSupplierOfferById(
     minOrderQuantity: doc.minOrderQuantity,
     deliveryDays: doc.deliveryDays,
     status: doc.status,
+    isEligibleForPurchase,
     createdAt: (doc.createdAt ?? new Date()).toISOString(),
     updatedAt: (doc.updatedAt ?? new Date()).toISOString(),
   };
 }
 
 // ---------------------------------------------------------------------------
-// Find by supplierId + productId (uniqueness check)
+// Find by supplierId + productId (uniqueness check before creation)
 // ---------------------------------------------------------------------------
 
 export async function findOfferBySupplierAndProduct(
@@ -281,7 +334,7 @@ export async function findOfferBySupplierAndProduct(
 }
 
 // ---------------------------------------------------------------------------
-// Create
+// Create SupplierOffer
 // ---------------------------------------------------------------------------
 
 export async function createSupplierOffer(data: {
@@ -309,7 +362,7 @@ export async function createSupplierOffer(data: {
 }
 
 // ---------------------------------------------------------------------------
-// Update (productId stays immutable)
+// Update SupplierOffer (productId is strictly immutable)
 // ---------------------------------------------------------------------------
 
 export async function updateSupplierOffer(
@@ -345,7 +398,7 @@ export async function updateSupplierOffer(
 }
 
 // ---------------------------------------------------------------------------
-// Toggle status
+// Toggle SupplierOffer status
 // ---------------------------------------------------------------------------
 
 export async function updateSupplierOfferStatus(
@@ -369,7 +422,8 @@ export async function updateSupplierOfferStatus(
 }
 
 // ---------------------------------------------------------------------------
-// Active product lookup for offer creation (only active + non-deleted + active category)
+// Active products lookup for supplier to add to their offers
+// (Only active + not deleted product, whose category and ancestor branch are active)
 // ---------------------------------------------------------------------------
 
 export async function findActiveProductsForOffer(
@@ -384,7 +438,7 @@ export async function findActiveProductsForOffer(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const filter: Record<string, any> = {
     status: "active",
-    ...notDeletedProduct,
+    ...notDeleted,
   };
 
   if (trimmed) {
@@ -393,6 +447,7 @@ export async function findActiveProductsForOffer(
       filter.$or = [
         { name: { $regex: escaped, $options: "i" } },
         { sku: { $regex: escaped, $options: "i" } },
+        { brand: { $regex: escaped, $options: "i" } },
       ];
     }
   }
@@ -409,40 +464,56 @@ export async function findActiveProductsForOffer(
 
   if (productDocs.length === 0) return [];
 
-  // Only keep products with active non-deleted category
-  const categoryIds = Array.from(
-    new Set(productDocs.map((p) => p.categoryId.toString())),
-  );
-
-  const activeCategoryDocs = (await Category.find({
-    _id: { $in: categoryIds.map((id) => new Types.ObjectId(id)) },
-    status: "active",
-    deletedAt: null,
-  })
-    .select("name")
-    .lean()) as unknown as Array<{
-    _id: { toString(): string };
+  // Filter products by verifying active category branch
+  const eligibleProducts: Array<{
+    id: string;
     name: string;
-  }>;
+    unit: string;
+    categoryName?: string;
+  }> = [];
 
-  const activeCategoryMap = new Map<string, string>();
-  for (const c of activeCategoryDocs) {
-    activeCategoryMap.set(c._id.toString(), c.name);
+  const categoryCache = new Map<string, { active: boolean; name?: string }>();
+
+  for (const prod of productDocs) {
+    const catId = prod.categoryId.toString();
+    let catInfo = categoryCache.get(catId);
+
+    if (!catInfo) {
+      const activeBranch = await isCategoryBranchActive(catId);
+      let catName: string | undefined;
+      if (activeBranch) {
+        const catDoc = (await Category.findOne({
+          _id: new Types.ObjectId(catId),
+          ...notDeleted,
+        })
+          .select("name")
+          .lean()) as unknown as { name?: string } | null;
+        catName = catDoc?.name;
+      }
+      catInfo = { active: activeBranch, name: catName };
+      categoryCache.set(catId, catInfo);
+    }
+
+    if (catInfo.active) {
+      eligibleProducts.push({
+        id: prod._id.toString(),
+        name: prod.name,
+        unit: prod.unit,
+        categoryName: catInfo.name,
+      });
+    }
   }
 
-  return productDocs
-    .filter((p) => activeCategoryMap.has(p.categoryId.toString()))
-    .map((p) => ({
-      id: p._id.toString(),
-      name: p.name,
-      unit: p.unit,
-      categoryName: activeCategoryMap.get(p.categoryId.toString()),
-    }));
+  return eligibleProducts;
 }
 
 // ---------------------------------------------------------------------------
-// Eligible offers query (for future buyer/RFQ view)
-// Conditions: active offer, stock>0, active+verified supplier, active+not-deleted product+category
+// Common eligibility condition for future buyer / RFQ consumption:
+// 1. Offer is active
+// 2. Offer stock >= minOrderQuantity
+// 3. Supplier is active, verified, not deleted
+// 4. Product is active, not deleted
+// 5. Category and all its ancestors are active and not deleted
 // ---------------------------------------------------------------------------
 
 export async function findEligibleOffersForProduct(
@@ -451,42 +522,42 @@ export async function findEligibleOffersForProduct(
   if (!Types.ObjectId.isValid(productId)) return [];
   await dbConnect();
 
-  // First verify product is active and not deleted
+  // 1. Product must be active and not deleted
   const productDoc = (await Product.findOne({
     _id: new Types.ObjectId(productId),
     status: "active",
-    ...notDeletedProduct,
+    ...notDeleted,
   })
     .select("name unit categoryId")
     .lean()) as unknown as {
     name: string;
     unit: string;
-    categoryId: { toString(): string };
+    categoryId: Types.ObjectId;
   } | null;
 
   if (!productDoc) return [];
 
-  // Verify category is active and not deleted
-  const categoryDoc = (await Category.findOne({
+  // 2. Category branch must be active
+  const isBranchActive = await isCategoryBranchActive(productDoc.categoryId);
+  if (!isBranchActive) return [];
+
+  const catDoc = (await Category.findOne({
     _id: productDoc.categoryId,
-    status: "active",
-    deletedAt: null,
+    ...notDeleted,
   })
     .select("name")
     .lean()) as unknown as { name: string } | null;
 
-  if (!categoryDoc) return [];
-
-  // Get active offers with stock > 0
+  // 3. Offers must be active with stock >= minOrderQuantity (no reservation in this phase)
   const offerDocs = (await SupplierOffer.find({
     productId: new Types.ObjectId(productId),
     status: "active",
-    stock: { $gt: 0 },
+    $expr: { $gte: ["$stock", "$minOrderQuantity"] },
   }).lean()) as unknown as OfferLeanDoc[];
 
   if (offerDocs.length === 0) return [];
 
-  // Batch-fetch supplier info (active + verified)
+  // 4. Supplier must be active, verified, not deleted
   const supplierIds = Array.from(
     new Set(offerDocs.map((o) => o.supplierId.toString())),
   );
@@ -495,7 +566,7 @@ export async function findEligibleOffersForProduct(
     _id: { $in: supplierIds.map((id) => new Types.ObjectId(id)) },
     status: "active",
     isVerified: true,
-    deletedAt: null,
+    ...notDeleted,
   })
     .select("businessName")
     .lean()) as unknown as Array<{
@@ -517,12 +588,13 @@ export async function findEligibleOffersForProduct(
       productId,
       productName: productDoc.name,
       productUnit: productDoc.unit,
-      categoryName: categoryDoc.name,
+      categoryName: catDoc?.name,
       price: o.price,
       stock: o.stock,
       minOrderQuantity: o.minOrderQuantity,
       deliveryDays: o.deliveryDays,
       status: o.status,
+      isEligibleForPurchase: true,
       createdAt: (o.createdAt ?? new Date()).toISOString(),
       updatedAt: (o.updatedAt ?? new Date()).toISOString(),
     }));

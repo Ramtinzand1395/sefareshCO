@@ -34,6 +34,23 @@ export const productSlugSchema = z
   );
 
 // ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Converts null/undefined/"" → undefined so optional string fields accept
+ * the null that FormData.get() returns for absent inputs in Zod v4.
+ * (.optional().or(z.literal("")) is broken with null in Zod v4)
+ */
+const nullToUndef = (v: unknown) =>
+  v === null || v === undefined || v === "" ? undefined : v;
+
+/** Optional string field that correctly handles null from FormData in Zod v4. */
+function optStr(maxLen: number, msg?: string) {
+  return z.preprocess(nullToUndef, z.string().trim().max(maxLen, msg).optional());
+}
+
+// ---------------------------------------------------------------------------
 // Category Schemas
 // ---------------------------------------------------------------------------
 
@@ -44,12 +61,7 @@ export const createCategorySchema = z.object({
     .min(2, "نام دسته‌بندی باید حداقل ۲ کاراکتر باشد")
     .max(120, "نام دسته‌بندی نمی‌تواند بیش از ۱۲۰ کاراکتر باشد"),
   slug: categorySlugSchema,
-  description: z
-    .string()
-    .trim()
-    .max(1000, "توضیحات نمی‌تواند بیش از ۱۰۰۰ کاراکتر باشد")
-    .optional()
-    .or(z.literal("")),
+  description: optStr(1000, "توضیحات نمی‌تواند بیش از ۱۰۰۰ کاراکتر باشد"),
   parentId: z
     .string()
     .trim()
@@ -64,8 +76,8 @@ export const createCategorySchema = z.object({
     .int("ترتیب نمایش باید عدد صحیح باشد")
     .min(0, "ترتیب نمایش نمی‌تواند منفی باشد")
     .default(0),
-  icon: z.string().trim().max(100).optional().or(z.literal("")),
-  image: z.string().trim().max(500).optional().or(z.literal("")),
+  icon: optStr(100),
+  image: optStr(500),
   status: z
     .enum(categoryStatusValues, {
       message: "وضعیت انتخاب‌شده معتبر نیست",
@@ -83,12 +95,7 @@ export const updateCategorySchema = z.object({
     .min(2, "نام دسته‌بندی باید حداقل ۲ کاراکتر باشد")
     .max(120, "نام دسته‌بندی نمی‌تواند بیش از ۱۲۰ کاراکتر باشد"),
   slug: categorySlugSchema,
-  description: z
-    .string()
-    .trim()
-    .max(1000, "توضیحات نمی‌تواند بیش از ۱۰۰۰ کاراکتر باشد")
-    .optional()
-    .or(z.literal("")),
+  description: optStr(1000, "توضیحات نمی‌تواند بیش از ۱۰۰۰ کاراکتر باشد"),
   parentId: z
     .string()
     .trim()
@@ -103,8 +110,8 @@ export const updateCategorySchema = z.object({
     .int("ترتیب نمایش باید عدد صحیح باشد")
     .min(0, "ترتیب نمایش نمی‌تواند منفی باشد")
     .default(0),
-  icon: z.string().trim().max(100).optional().or(z.literal("")),
-  image: z.string().trim().max(500).optional().or(z.literal("")),
+  icon: optStr(100),
+  image: optStr(500),
   status: z.enum(categoryStatusValues, {
     message: "وضعیت انتخاب‌شده معتبر نیست",
   }),
@@ -119,7 +126,9 @@ export const updateCategoryStatusSchema = z.object({
   }),
 });
 
-export type UpdateCategoryStatusInput = z.infer<typeof updateCategoryStatusSchema>;
+export type UpdateCategoryStatusInput = z.infer<
+  typeof updateCategoryStatusSchema
+>;
 
 // ---------------------------------------------------------------------------
 // Product Enums & Values
@@ -147,41 +156,32 @@ export const createProductSchema = z.object({
     .max(200, "نام محصول نمی‌تواند بیش از ۲۰۰ کاراکتر باشد"),
   slug: productSlugSchema,
   categoryId: adminEntityIdSchema,
-  brand: z
-    .string()
-    .trim()
-    .max(100, "نام برند نمی‌تواند بیش از ۱۰۰ کاراکتر باشد")
-    .optional()
-    .or(z.literal("")),
+  brand: optStr(100, "نام برند نمی‌تواند بیش از ۱۰۰ کاراکتر باشد"),
   unit: z
     .string()
     .trim()
     .min(1, "واحد سنجش الزامی است")
     .max(50, "واحد سنجش نمی‌تواند بیش از ۵۰ کاراکتر باشد"),
-  description: z
-    .string()
-    .trim()
-    .max(3000, "توضیحات نمی‌تواند بیش از ۳۰۰۰ کاراکتر باشد")
-    .optional()
-    .or(z.literal("")),
-  barcode: z
-    .string()
-    .trim()
-    .max(60, "بارکد نمی‌تواند بیش از ۶۰ کاراکتر باشد")
-    .optional()
-    .or(z.literal(""))
-    .transform((val) => (val && val.length > 0 ? val : undefined)),
-  sku: z
-    .string()
-    .trim()
-    .max(60, "کد کالا (SKU) نمی‌تواند بیش از ۶۰ کاراکتر باشد")
-    .optional()
-    .or(z.literal(""))
-    .transform((val) => (val && val.length > 0 ? val : undefined)),
-  images: z
-    .array(z.string().trim())
-    .default([])
-    .optional(),
+  description: optStr(3000, "توضیحات نمی‌تواند بیش از ۳۰۰۰ کاراکتر باشد"),
+  barcode: z.preprocess(
+    nullToUndef,
+    z
+      .string()
+      .trim()
+      .max(60, "بارکد نمی‌تواند بیش از ۶۰ کاراکتر باشد")
+      .optional()
+      .transform((val) => (val && val.length > 0 ? val : undefined)),
+  ),
+  sku: z.preprocess(
+    nullToUndef,
+    z
+      .string()
+      .trim()
+      .max(60, "کد کالا (SKU) نمی‌تواند بیش از ۶۰ کاراکتر باشد")
+      .optional()
+      .transform((val) => (val && val.length > 0 ? val : undefined)),
+  ),
+  images: z.array(z.string().trim()).default([]).optional(),
   status: z
     .enum(productStatusValues, {
       message: "وضعیت انتخاب‌شده معتبر نیست",
@@ -201,41 +201,32 @@ export const updateProductSchema = z.object({
     .max(200, "نام محصول نمی‌تواند بیش از ۲۰۰ کاراکتر باشد"),
   slug: productSlugSchema,
   categoryId: adminEntityIdSchema,
-  brand: z
-    .string()
-    .trim()
-    .max(100, "نام برند نمی‌تواند بیش از ۱۰۰ کاراکتر باشد")
-    .optional()
-    .or(z.literal("")),
+  brand: optStr(100, "نام برند نمی‌تواند بیش از ۱۰۰ کاراکتر باشد"),
   unit: z
     .string()
     .trim()
     .min(1, "واحد سنجش الزامی است")
     .max(50, "واحد سنجش نمی‌تواند بیش از ۵۰ کاراکتر باشد"),
-  description: z
-    .string()
-    .trim()
-    .max(3000, "توضیحات نمی‌تواند بیش از ۳۰۰۰ کاراکتر باشد")
-    .optional()
-    .or(z.literal("")),
-  barcode: z
-    .string()
-    .trim()
-    .max(60, "بارکد نمی‌تواند بیش از ۶۰ کاراکتر باشد")
-    .optional()
-    .or(z.literal(""))
-    .transform((val) => (val && val.length > 0 ? val : undefined)),
-  sku: z
-    .string()
-    .trim()
-    .max(60, "کد کالا (SKU) نمی‌تواند بیش از ۶۰ کاراکتر باشد")
-    .optional()
-    .or(z.literal(""))
-    .transform((val) => (val && val.length > 0 ? val : undefined)),
-  images: z
-    .array(z.string().trim())
-    .default([])
-    .optional(),
+  description: optStr(3000, "توضیحات نمی‌تواند بیش از ۳۰۰۰ کاراکتر باشد"),
+  barcode: z.preprocess(
+    nullToUndef,
+    z
+      .string()
+      .trim()
+      .max(60, "بارکد نمی‌تواند بیش از ۶۰ کاراکتر باشد")
+      .optional()
+      .transform((val) => (val && val.length > 0 ? val : undefined)),
+  ),
+  sku: z.preprocess(
+    nullToUndef,
+    z
+      .string()
+      .trim()
+      .max(60, "کد کالا (SKU) نمی‌تواند بیش از ۶۰ کاراکتر باشد")
+      .optional()
+      .transform((val) => (val && val.length > 0 ? val : undefined)),
+  ),
+  images: z.array(z.string().trim()).default([]).optional(),
   status: z.enum(productStatusValues, {
     message: "وضعیت انتخاب‌شده معتبر نیست",
   }),
@@ -251,4 +242,6 @@ export const updateProductStatusSchema = z.object({
   }),
 });
 
-export type UpdateProductStatusInput = z.infer<typeof updateProductStatusSchema>;
+export type UpdateProductStatusInput = z.infer<
+  typeof updateProductStatusSchema
+>;
