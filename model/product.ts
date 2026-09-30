@@ -73,14 +73,12 @@ const productSchema = new Schema(
     barcode: {
       type: String,
       trim: true,
-      sparse: true,
       maxlength: 60,
     },
 
     sku: {
       type: String,
       trim: true,
-      sparse: true,
       maxlength: 60,
     },
 
