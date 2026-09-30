@@ -2,7 +2,7 @@ import "server-only";
 
 import {
   buyerCatalogQuerySchema,
-  buyerCompareQuerySchema,
+  parseBuyerCompareParams,
   type BuyerCompareSort,
 } from "@/src/domain/schemas/cafe-catalog";
 import { getCurrentCafeIdentity } from "@/src/lib/auth-helpers";
@@ -48,6 +48,13 @@ export type ProcessedComparisonOfferDTO = BuyerOfferComparisonDTO & {
 
 export type BuyerProductComparisonResult =
   | { state: "not_found_or_inactive" }
+  | {
+      state: "invalid_quantity";
+      product: ProductComparisonProductDTO;
+      quantityInput: string;
+      quantityError: string;
+      sortBy: BuyerCompareSort;
+    }
   | {
       state: "available";
       product: ProductComparisonProductDTO;
@@ -100,14 +107,7 @@ export async function getBuyerProductComparison(
 ): Promise<BuyerProductComparisonResult> {
   await requireCafeBuyerAccess();
 
-  const parsedQuery = buyerCompareQuerySchema.safeParse({
-    productId,
-    quantity: rawQuantity,
-    sortBy: rawSortBy,
-  });
-
-  const quantity = parsedQuery.success ? parsedQuery.data.quantity : 1;
-  const sortBy = parsedQuery.success ? parsedQuery.data.sortBy : "price";
+  const parsedParams = parseBuyerCompareParams(rawQuantity, rawSortBy);
 
   const repoResult = await findProductForComparison(productId);
   if (repoResult.state === "not_found_or_inactive") {
@@ -115,6 +115,18 @@ export async function getBuyerProductComparison(
   }
 
   const { product, offers } = repoResult;
+
+  if (!parsedParams.success) {
+    return {
+      state: "invalid_quantity",
+      product,
+      quantityInput: parsedParams.quantityInput,
+      quantityError: parsedParams.quantityError,
+      sortBy: parsedParams.sortBy,
+    };
+  }
+
+  const { quantity, sortBy } = parsedParams;
 
   if (offers.length === 0) {
     return {

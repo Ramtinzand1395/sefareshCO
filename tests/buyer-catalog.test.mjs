@@ -8,8 +8,12 @@ import { Supplier } from "../model/supplier.ts";
 import { SupplierOffer } from "../model/supplier-offer.ts";
 import { hasActiveBusinessAccess } from "../src/domain/admin-access.ts";
 import {
+  BUYER_CATALOG_SEARCH_MAX_LENGTH,
   buyerCatalogQuerySchema,
   buyerCompareQuerySchema,
+  buyerCompareQuantitySchema,
+  normalizeBuyerCatalogSearchParams,
+  parseBuyerCompareParams,
 } from "../src/domain/schemas/cafe-catalog.ts";
 import {
   findBuyerCatalog,
@@ -60,6 +64,43 @@ test("buyerCompareQuerySchema validates positive integer quantity and safe integ
     buyerCompareQuerySchema.safeParse({ quantity: Number.MAX_SAFE_INTEGER + 10 }).success,
     false,
   );
+});
+
+test("buyer catalog URL params are normalized without trusting arrays or oversized search", () => {
+  const query = normalizeBuyerCatalogSearchParams({
+    page: "not-a-page",
+    pageSize: ["12", "24"],
+    search: "ق".repeat(BUYER_CATALOG_SEARCH_MAX_LENGTH + 20),
+    categoryId: [new Types.ObjectId().toString(), new Types.ObjectId().toString()],
+    sort: ["price_asc", "price_desc"],
+  });
+
+  assert.equal(query.page, 1);
+  assert.equal(query.pageSize, 24);
+  assert.equal(query.search?.length, BUYER_CATALOG_SEARCH_MAX_LENGTH);
+  assert.equal(query.categoryId, undefined);
+  assert.equal(query.sort, "newest");
+});
+
+test("buyer comparison rejects blank, repeated, decimal and unsafe quantities without defaulting", () => {
+  for (const quantity of [
+    "",
+    ["2", "3"],
+    "2.5",
+    "0",
+    "-1",
+    String(Number.MAX_SAFE_INTEGER + 1),
+  ]) {
+    assert.equal(buyerCompareQuantitySchema.safeParse(quantity).success, false);
+    assert.equal(parseBuyerCompareParams(quantity, "price").success, false);
+  }
+
+  const absentQuantity = parseBuyerCompareParams(undefined, "deliveryDays");
+  assert.deepEqual(absentQuantity, {
+    success: true,
+    quantity: 1,
+    sortBy: "deliveryDays",
+  });
 });
 
 // ---------------------------------------------------------------------------

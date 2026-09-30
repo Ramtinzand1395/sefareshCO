@@ -115,3 +115,29 @@ a {
     transition-duration: 0.01ms !important;
   }
 }
+
+.cafe-content-container {
+  container-type: inline-size;
+}
+
+.cafe-catalog-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15.5rem), 1fr));
+}
+
+.cafe-compare-table {
+  display: none;
+}
+
+.cafe-compare-cards {
+  display: grid;
+}
+
+@container (min-width: 56rem) {
+  .cafe-compare-table {
+    display: block;
+  }
+
+  .cafe-compare-cards {
+    display: none;
+  }
+}
