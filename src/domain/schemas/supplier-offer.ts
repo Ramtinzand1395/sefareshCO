@@ -9,6 +9,7 @@ export const offerEntityIdSchema = z
 
 export const offerStatusValues = ["active", "inactive"] as const;
 export type OfferStatus = (typeof offerStatusValues)[number];
+export const SUPPLIER_OFFER_SEARCH_MAX_LENGTH = 100;
 
 const safePositiveInteger = (fieldName: string, min = 1) =>
   z.coerce
@@ -72,7 +73,11 @@ export type UpdateOfferStatusInput = z.infer<typeof updateOfferStatusSchema>;
 export const supplierOfferQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(50).default(20),
-  search: z.string().trim().max(100).optional(),
+  search: z
+    .string()
+    .trim()
+    .max(SUPPLIER_OFFER_SEARCH_MAX_LENGTH)
+    .optional(),
   status: z.enum(offerStatusValues).optional(),
 });
 

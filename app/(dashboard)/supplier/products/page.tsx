@@ -9,7 +9,11 @@ import {
   OfferCreateForm,
   OfferRowActions,
 } from "@/app/(dashboard)/supplier/products/offer-forms";
-import type { OfferStatus } from "@/src/domain/schemas/supplier-offer";
+import {
+  SUPPLIER_OFFER_SEARCH_MAX_LENGTH,
+  supplierOfferQuerySchema,
+  type OfferStatus,
+} from "@/src/domain/schemas/supplier-offer";
 import {
   formatPersianDate,
   formatPersianNumber,
@@ -27,11 +31,13 @@ const statusOptions = [
   { value: "inactive", label: "غیرفعال" },
 ];
 
-const validStatuses = new Set(["active", "inactive"]);
-
 type Props = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
+
+function getSingleSearchParam(value: string | string[] | undefined) {
+  return typeof value === "string" ? value : undefined;
+}
 
 function PublicationBadge({ status }: { status: OfferStatus }) {
   return (
@@ -72,24 +78,29 @@ function DeliveryTime({ days }: { days: number }) {
 
 export default async function SupplierProductsPage({ searchParams }: Props) {
   const params = await searchParams;
-  const rawPage = Number(params.page);
-  const page = Number.isFinite(rawPage) ? Math.max(1, Math.floor(rawPage)) : 1;
-  const search =
-    typeof params.search === "string" ? params.search.trim() : undefined;
-  const statusParam =
-    typeof params.status === "string" ? params.status : undefined;
-  const status =
-    statusParam && validStatuses.has(statusParam)
-      ? (statusParam as OfferStatus)
-      : undefined;
+  const rawSearch = getSingleSearchParam(params.search)?.trim();
+  const normalizedSearch = rawSearch
+    ? rawSearch.slice(0, SUPPLIER_OFFER_SEARCH_MAX_LENGTH)
+    : undefined;
+  const parsedPage = supplierOfferQuerySchema.shape.page.safeParse(
+    getSingleSearchParam(params.page),
+  );
+  const parsedStatus = supplierOfferQuerySchema.shape.status.safeParse(
+    getSingleSearchParam(params.status),
+  );
+  const parsedQuery = supplierOfferQuerySchema.safeParse({
+    page: parsedPage.success ? parsedPage.data : 1,
+    pageSize: 20,
+    search: normalizedSearch,
+    status: parsedStatus.success ? parsedStatus.data : undefined,
+  });
+  const query = parsedQuery.success
+    ? parsedQuery.data
+    : supplierOfferQuerySchema.parse({ page: 1, pageSize: 20 });
+  const { page, search, status } = query;
   const hasFilters = Boolean(search || status);
 
-  const { items, pagination } = await getMyOfferList({
-    page,
-    pageSize: 20,
-    search: search || undefined,
-    status,
-  });
+  const { items, pagination } = await getMyOfferList(query);
 
   let hasAnyOffers = pagination.total > 0;
   if (hasFilters && pagination.total === 0) {
@@ -156,6 +167,7 @@ export default async function SupplierProductsPage({ searchParams }: Props) {
                 id="offer-search"
                 name="search"
                 type="search"
+                maxLength={SUPPLIER_OFFER_SEARCH_MAX_LENGTH}
                 defaultValue={search ?? ""}
                 placeholder="نام کالا، برند یا کد کالا..."
                 className="h-11 w-full rounded-control border border-line bg-surface ps-10 pe-3 text-sm text-ink outline-none transition placeholder:text-ink-muted/70 focus:border-primary"

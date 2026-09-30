@@ -36,6 +36,24 @@ type ProductOption = {
   categoryName?: string;
 };
 
+type CreateOfferFormValues = {
+  price: string;
+  stock: string;
+  minOrderQuantity: string;
+  deliveryDays: string;
+  status: "active" | "inactive";
+};
+
+type EditOfferFormValues = Omit<CreateOfferFormValues, "status">;
+
+const initialCreateFormValues: CreateOfferFormValues = {
+  price: "",
+  stock: "0",
+  minOrderQuantity: "1",
+  deliveryDays: "1",
+  status: "inactive",
+};
+
 type ProductSearchState =
   | { status: "loading"; items: ProductOption[]; message?: undefined }
   | { status: "ready"; items: ProductOption[]; message?: undefined }
@@ -369,12 +387,14 @@ export function OfferCreateForm() {
   const [selectedProduct, setSelectedProduct] =
     useState<ProductOption | null>(null);
   const [pickerKey, setPickerKey] = useState(0);
-  const formRef = useRef<HTMLFormElement>(null);
+  const [formValues, setFormValues] = useState<CreateOfferFormValues>(
+    initialCreateFormValues,
+  );
   const createAction = useCallback(
     async (previousState: SupplierOfferActionState, formData: FormData) => {
       const result = await createOfferAction(previousState, formData);
       if (result.ok) {
-        formRef.current?.reset();
+        setFormValues(initialCreateFormValues);
         setSelectedProduct(null);
         setPickerKey((value) => value + 1);
       }
@@ -416,7 +436,6 @@ export function OfferCreateForm() {
 
       {isOpen ? (
         <form
-          ref={formRef}
           id="create-offer-form"
           action={formAction}
           aria-busy={isPending}
@@ -459,6 +478,13 @@ export function OfferCreateForm() {
                 step="1"
                 required
                 disabled={isPending}
+                value={formValues.price}
+                onChange={(event) =>
+                  setFormValues((values) => ({
+                    ...values,
+                    price: event.target.value,
+                  }))
+                }
                 aria-invalid={Boolean(state.fieldErrors?.price)}
                 aria-describedby={state.fieldErrors?.price ? "offer-price-error" : undefined}
                 placeholder="مثلاً ۲۵۰۰۰۰"
@@ -477,9 +503,15 @@ export function OfferCreateForm() {
                 type="number"
                 min="0"
                 step="1"
-                defaultValue="0"
                 required
                 disabled={isPending}
+                value={formValues.stock}
+                onChange={(event) =>
+                  setFormValues((values) => ({
+                    ...values,
+                    stock: event.target.value,
+                  }))
+                }
                 aria-invalid={Boolean(state.fieldErrors?.stock)}
                 aria-describedby={state.fieldErrors?.stock ? "offer-stock-error" : undefined}
                 className="h-11 w-full rounded-control border border-line bg-surface px-3 text-sm font-bold text-ink outline-none transition focus:border-primary disabled:opacity-60"
@@ -497,9 +529,15 @@ export function OfferCreateForm() {
                 type="number"
                 min="1"
                 step="1"
-                defaultValue="1"
                 required
                 disabled={isPending}
+                value={formValues.minOrderQuantity}
+                onChange={(event) =>
+                  setFormValues((values) => ({
+                    ...values,
+                    minOrderQuantity: event.target.value,
+                  }))
+                }
                 aria-invalid={Boolean(state.fieldErrors?.minOrderQuantity)}
                 aria-describedby={state.fieldErrors?.minOrderQuantity ? "offer-minimum-error" : undefined}
                 className="h-11 w-full rounded-control border border-line bg-surface px-3 text-sm font-bold text-ink outline-none transition focus:border-primary disabled:opacity-60"
@@ -518,8 +556,14 @@ export function OfferCreateForm() {
                 min="0"
                 max="365"
                 step="1"
-                defaultValue="1"
                 disabled={isPending}
+                value={formValues.deliveryDays}
+                onChange={(event) =>
+                  setFormValues((values) => ({
+                    ...values,
+                    deliveryDays: event.target.value,
+                  }))
+                }
                 aria-invalid={Boolean(state.fieldErrors?.deliveryDays)}
                 aria-describedby={state.fieldErrors?.deliveryDays ? "offer-delivery-error" : undefined}
                 className="h-11 w-full rounded-control border border-line bg-surface px-3 text-sm font-bold text-ink outline-none transition focus:border-primary disabled:opacity-60"
@@ -534,8 +578,14 @@ export function OfferCreateForm() {
               <select
                 id="offer-status"
                 name="status"
-                defaultValue="inactive"
                 disabled={isPending}
+                value={formValues.status}
+                onChange={(event) =>
+                  setFormValues((values) => ({
+                    ...values,
+                    status: event.target.value as "active" | "inactive",
+                  }))
+                }
                 aria-invalid={Boolean(state.fieldErrors?.status)}
                 aria-describedby={state.fieldErrors?.status ? "offer-status-error" : undefined}
                 className="h-11 w-full rounded-control border border-line bg-surface px-3 text-sm text-ink outline-none transition focus:border-primary disabled:opacity-60"
@@ -575,6 +625,12 @@ export function OfferEditModal({
   const descriptionId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const [formValues, setFormValues] = useState<EditOfferFormValues>(() => ({
+    price: String(offer.price),
+    stock: String(offer.stock),
+    minOrderQuantity: String(offer.minOrderQuantity),
+    deliveryDays: String(offer.deliveryDays),
+  }));
   const editAction = useCallback(
     async (previousState: SupplierOfferActionState, formData: FormData) => {
       const result = await updateOfferAction(previousState, formData);
@@ -703,7 +759,14 @@ export function OfferEditModal({
                 <label htmlFor="edit-price" className="mb-1 block text-xs font-bold text-ink-muted">قیمت واحد (تومان) *</label>
                 <input
                   id="edit-price" name="price" type="number" min="1" step="1" required
-                  defaultValue={offer.price} disabled={isPending} data-dialog-autofocus
+                  value={formValues.price}
+                  onChange={(event) =>
+                    setFormValues((values) => ({
+                      ...values,
+                      price: event.target.value,
+                    }))
+                  }
+                  disabled={isPending} data-dialog-autofocus
                   aria-invalid={Boolean(state.fieldErrors?.price)}
                   aria-describedby={state.fieldErrors?.price ? "edit-price-error" : undefined}
                   className="h-10 w-full rounded-control border border-line bg-surface px-3 text-sm font-bold text-ink outline-none transition focus:border-primary disabled:opacity-60"
@@ -715,7 +778,14 @@ export function OfferEditModal({
                 <label htmlFor="edit-stock" className="mb-1 block text-xs font-bold text-ink-muted">موجودی انبار ({offer.productUnit}) *</label>
                 <input
                   id="edit-stock" name="stock" type="number" min="0" step="1" required
-                  defaultValue={offer.stock} disabled={isPending}
+                  value={formValues.stock}
+                  onChange={(event) =>
+                    setFormValues((values) => ({
+                      ...values,
+                      stock: event.target.value,
+                    }))
+                  }
+                  disabled={isPending}
                   aria-invalid={Boolean(state.fieldErrors?.stock)}
                   aria-describedby={state.fieldErrors?.stock ? "edit-stock-error" : undefined}
                   className="h-10 w-full rounded-control border border-line bg-surface px-3 text-sm font-bold text-ink outline-none transition focus:border-primary disabled:opacity-60"
@@ -727,7 +797,14 @@ export function OfferEditModal({
                 <label htmlFor="edit-minimum" className="mb-1 block text-xs font-bold text-ink-muted">حداقل سفارش ({offer.productUnit}) *</label>
                 <input
                   id="edit-minimum" name="minOrderQuantity" type="number" min="1" step="1" required
-                  defaultValue={offer.minOrderQuantity} disabled={isPending}
+                  value={formValues.minOrderQuantity}
+                  onChange={(event) =>
+                    setFormValues((values) => ({
+                      ...values,
+                      minOrderQuantity: event.target.value,
+                    }))
+                  }
+                  disabled={isPending}
                   aria-invalid={Boolean(state.fieldErrors?.minOrderQuantity)}
                   aria-describedby={state.fieldErrors?.minOrderQuantity ? "edit-minimum-error" : undefined}
                   className="h-10 w-full rounded-control border border-line bg-surface px-3 text-sm font-bold text-ink outline-none transition focus:border-primary disabled:opacity-60"
@@ -739,7 +816,14 @@ export function OfferEditModal({
                 <label htmlFor="edit-delivery" className="mb-1 block text-xs font-bold text-ink-muted">زمان تحویل (روز)</label>
                 <input
                   id="edit-delivery" name="deliveryDays" type="number" min="0" max="365" step="1"
-                  defaultValue={offer.deliveryDays} disabled={isPending}
+                  value={formValues.deliveryDays}
+                  onChange={(event) =>
+                    setFormValues((values) => ({
+                      ...values,
+                      deliveryDays: event.target.value,
+                    }))
+                  }
+                  disabled={isPending}
                   aria-invalid={Boolean(state.fieldErrors?.deliveryDays)}
                   aria-describedby={state.fieldErrors?.deliveryDays ? "edit-delivery-error" : undefined}
                   className="h-10 w-full rounded-control border border-line bg-surface px-3 text-sm font-bold text-ink outline-none transition focus:border-primary disabled:opacity-60"
@@ -762,13 +846,33 @@ export function OfferEditModal({
 }
 
 export function OfferStatusToggle({ offer }: { offer: SupplierOfferListItemDTO }) {
-  const [submittedStatus, setSubmittedStatus] = useState<"active" | "inactive" | null>(null);
-  const [state, formAction, isPending] = useActionState(toggleOfferStatusAction, initialState);
+  const [successfulStatus, setSuccessfulStatus] = useState<
+    "active" | "inactive" | null
+  >(null);
+  const toggleAction = useCallback(
+    async (previousState: SupplierOfferActionState, formData: FormData) => {
+      setSuccessfulStatus(null);
+      const requestedStatus = formData.get("status");
+      const result = await toggleOfferStatusAction(previousState, formData);
+      if (
+        result.ok &&
+        (requestedStatus === "active" || requestedStatus === "inactive")
+      ) {
+        setSuccessfulStatus(requestedStatus);
+      }
+      return result;
+    },
+    [],
+  );
+  const [state, formAction, isPending] = useActionState(
+    toggleAction,
+    initialState,
+  );
   const nextStatus = offer.status === "active" ? "inactive" : "active";
 
   return (
     <div className="inline-flex flex-col items-center">
-      <form action={formAction} onSubmit={() => setSubmittedStatus(nextStatus)} className="inline-block">
+      <form action={formAction} className="inline-block">
         <input type="hidden" name="offerId" value={offer.id} />
         <input type="hidden" name="status" value={nextStatus} />
         <button
@@ -781,11 +885,17 @@ export function OfferStatusToggle({ offer }: { offer: SupplierOfferListItemDTO }
         </button>
       </form>
       <div aria-live="polite" className="mt-1 max-w-36 text-center text-[10px] font-bold">
-        {state.error ? <span className="text-danger">{state.error}</span> : null}
-        <FieldError errors={state.fieldErrors?.offerId} />
-        <FieldError errors={state.fieldErrors?.status} />
-        {state.ok && submittedStatus ? (
-          <span className="text-success">عرضه با موفقیت {submittedStatus === "active" ? "فعال" : "غیرفعال"} شد.</span>
+        {!isPending && state.error ? (
+          <span className="text-danger">{state.error}</span>
+        ) : null}
+        {!isPending ? (
+          <>
+            <FieldError errors={state.fieldErrors?.offerId} />
+            <FieldError errors={state.fieldErrors?.status} />
+          </>
+        ) : null}
+        {!isPending && state.ok && successfulStatus ? (
+          <span className="text-success">عرضه با موفقیت {successfulStatus === "active" ? "فعال" : "غیرفعال"} شد.</span>
         ) : null}
       </div>
     </div>
