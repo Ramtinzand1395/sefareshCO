@@ -9,6 +9,7 @@ import {
   IconPackage,
   IconPlus,
   IconScale,
+  IconSend,
   IconShoppingBag,
   IconTrash,
 } from "@tabler/icons-react";
@@ -144,10 +145,12 @@ function SummaryCard({
 export function ShoppingListWorkspace({
   list,
   canManage,
+  canCreateRfq,
   products,
 }: {
   list: ShoppingListDetailDTO;
   canManage: boolean;
+  canCreateRfq: boolean;
   products: CatalogProductOption[];
 }) {
   const router = useRouter();
@@ -225,15 +228,28 @@ export function ShoppingListWorkspace({
             کالاهای موردنیاز کافه را قبل از استعلام قیمت مدیریت کنید.
           </p>
         </div>
-        {canManage ? (
-          <button
-            type="button"
-            onClick={() => openDialog({ kind: "add" })}
-            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-control bg-primary px-5 text-sm font-black text-white shadow-sm transition hover:bg-primary-hover sm:min-h-11 sm:w-auto"
-          >
-            <IconPlus className="size-5" aria-hidden="true" />
-            افزودن کالا
-          </button>
+        {canManage || canCreateRfq ? (
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            {canCreateRfq && list.aggregatedItems.length > 0 ? (
+              <Link
+                href="/cafe/purchase-requests?new=1"
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-control border border-primary bg-surface px-5 text-sm font-black text-primary transition hover:bg-primary-soft sm:min-h-11 sm:w-auto"
+              >
+                <IconSend className="size-5" aria-hidden="true" />
+                ایجاد استعلام
+              </Link>
+            ) : null}
+            {canManage ? (
+              <button
+                type="button"
+                onClick={() => openDialog({ kind: "add" })}
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-control bg-primary px-5 text-sm font-black text-white shadow-sm transition hover:bg-primary-hover sm:min-h-11 sm:w-auto"
+              >
+                <IconPlus className="size-5" aria-hidden="true" />
+                افزودن کالا
+              </button>
+            ) : null}
+          </div>
         ) : null}
       </header>
 

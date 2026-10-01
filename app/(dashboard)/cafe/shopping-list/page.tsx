@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 
 import { ShoppingListWorkspace } from "@/app/(dashboard)/cafe/shopping-list/_components/shopping-list-workspace";
-import { canManageShoppingList } from "@/src/domain/cafe-access";
+import {
+  canCreatePurchaseRequest,
+  canManageShoppingList,
+} from "@/src/domain/cafe-access";
 import { getBuyerCatalog } from "@/src/services/cafe-catalog-service";
 import {
   getActiveShoppingList,
@@ -17,6 +20,7 @@ export const metadata: Metadata = {
 export default async function ShoppingListPage() {
   const identity = await requireCafeMemberAccess();
   const canManage = canManageShoppingList(identity);
+  const canCreateRfq = canCreatePurchaseRequest(identity);
 
   const [list, catalog] = await Promise.all([
     getActiveShoppingList(),
@@ -29,6 +33,7 @@ export default async function ShoppingListPage() {
     <ShoppingListWorkspace
       list={list}
       canManage={canManage}
+      canCreateRfq={canCreateRfq}
       products={(catalog?.items ?? []).map((product) => ({
         id: product.id,
         name: product.name,

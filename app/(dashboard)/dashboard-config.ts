@@ -84,9 +84,9 @@ export const dashboardPortals = {
         "shopping-list",
       ),
       link(
-        "درخواست‌های خرید",
+        "استعلام‌های قیمت",
         "/cafe/purchase-requests",
-        "درخواست‌های رسمی خرید و استعلام قیمت مجموعه را مدیریت کنید.",
+        "استعلام‌های قیمت مجموعه را ایجاد و پیگیری کنید.",
         "request",
       ),
       link(
@@ -167,8 +167,8 @@ export const dashboardPortals = {
     details: [
       {
         pattern: "/cafe/purchase-requests/[id]",
-        title: "جزئیات درخواست خرید",
-        description: "جزئیات درخواست خرید و وضعیت دریافت پیشنهادها در این بخش نمایش داده می‌شود.",
+        title: "جزئیات استعلام قیمت",
+        description: "اقلام، زمان‌بندی و وضعیت استعلام قیمت در این بخش نمایش داده می‌شود.",
         parentHref: "/cafe/purchase-requests",
       },
       {
