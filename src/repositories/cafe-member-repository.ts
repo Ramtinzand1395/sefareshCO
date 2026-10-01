@@ -14,9 +14,14 @@ export const OWNER_CAFE_PERMISSIONS = {
   canManageMembers: true,
 } as const;
 
-export async function findActiveCafeMembership(userId: string) {
+export async function findActiveCafeMembership(userId: string, cafeId?: string) {
   await dbConnect();
-  return CafeMember.findOne({ userId, status: "active" }).sort({ joinedAt: 1 }).lean();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const query: Record<string, any> = { userId, status: "active" };
+  if (cafeId) {
+    query.cafeId = cafeId;
+  }
+  return CafeMember.findOne(query).sort({ joinedAt: 1 }).lean();
 }
 
 export async function ensureCafeOwnerMembership(

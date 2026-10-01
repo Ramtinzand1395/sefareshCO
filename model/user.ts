@@ -1,4 +1,6 @@
-import { Schema, model, models } from "mongoose";
+import mongoose from "mongoose";
+
+const { Schema, model, models } = mongoose;
 
 // فقط برای سازگاری با داده‌های development قدیمی نگه داشته شده است.
 // مجوز و tenant از Membershipها resolve می‌شوند، نه از این فیلد.
