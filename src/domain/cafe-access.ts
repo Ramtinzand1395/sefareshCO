@@ -176,3 +176,21 @@ export function canCancelPurchaseRequest(
   }
   return canCreatePurchaseRequest(member);
 }
+
+/**
+ * Determines whether a cafe member can compare quotes and manage supplier selections for RFQs.
+ * - Owner always has full permission.
+ * - Explicit true in permissions grants access.
+ * - Explicit false in permissions denies access.
+ * - Operational management roles (manager, purchase_manager) have default access unless revoked.
+ * - Non-management roles (chef, employee, accountant) cannot manage selections without explicit permission.
+ */
+export function canCompareSuppliers(member: {
+  role: string;
+  permissions?: { canCompareSuppliers?: boolean } | null;
+}): boolean {
+  if (member.role === "owner") return true;
+  if (member.permissions?.canCompareSuppliers === true) return true;
+  if (member.permissions?.canCompareSuppliers === false) return false;
+  return ["manager", "purchase_manager"].includes(member.role);
+}
