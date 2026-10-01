@@ -41,6 +41,8 @@ import {
   submitPurchaseRequestInRepo,
 } from "@/src/repositories/purchase-request-repository";
 import { findActiveShoppingListByCafe } from "@/src/repositories/shopping-list-repository";
+import { cancelSupplierRequestsByPurchaseRequest } from "@/src/repositories/supplier-request-repository";
+import { matchPurchaseRequestToSuppliers } from "./supplier-matching-service";
 
 // ---------------------------------------------------------------------------
 // Domain Errors
@@ -397,6 +399,17 @@ export async function createPurchaseRequest(
       items: preparedRfqItems,
     });
 
+    if (created.status === "submitted") {
+      try {
+        await matchPurchaseRequestToSuppliers(created.id, identity);
+      } catch (matchErr) {
+        console.error(
+          "Auto-matching on createPurchaseRequest failed gracefully:",
+          matchErr,
+        );
+      }
+    }
+
     return created;
   } finally {
     await releaseShoppingListLock(identity.cafeId, lockId);
@@ -428,7 +441,21 @@ export async function submitPurchaseRequest(
 
   const input: SubmitPurchaseRequestInput = parsed.data;
 
-  return submitPurchaseRequestInRepo(identity.cafeId, input.requestId);
+  const submitted = await submitPurchaseRequestInRepo(
+    identity.cafeId,
+    input.requestId,
+  );
+
+  try {
+    await matchPurchaseRequestToSuppliers(submitted.id, identity);
+  } catch (matchErr) {
+    console.error(
+      "Auto-matching on submitPurchaseRequest failed gracefully:",
+      matchErr,
+    );
+  }
+
+  return submitted;
 }
 
 // ---------------------------------------------------------------------------
@@ -471,12 +498,23 @@ export async function cancelPurchaseRequest(
     );
   }
 
-  return cancelPurchaseRequestInRepo({
+  const cancelled = await cancelPurchaseRequestInRepo({
     cafeId: identity.cafeId,
     requestId: input.requestId,
     cancelledByUserId: identity.userId,
     reason: input.reason,
   });
+
+  try {
+    await cancelSupplierRequestsByPurchaseRequest(cancelled.id);
+  } catch (cancelErr) {
+    console.error(
+      "Propagation of cancellation to child supplier requests failed:",
+      cancelErr,
+    );
+  }
+
+  return cancelled;
 }
 
 // ---------------------------------------------------------------------------

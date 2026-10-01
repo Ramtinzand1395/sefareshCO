@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node --import ./tests/register-loader.mjs --test --experimental-strip-types tests/admin-stabilization.test.mjs tests/admin-catalog.test.mjs tests/supplier-offer.test.mjs tests/buyer-catalog.test.mjs tests/internal-purchase-request.test.mjs tests/shopping-list.test.mjs tests/purchase-request.test.mjs"
+    "test": "node --import ./tests/register-loader.mjs --test --experimental-strip-types tests/admin-stabilization.test.mjs tests/admin-catalog.test.mjs tests/supplier-offer.test.mjs tests/buyer-catalog.test.mjs tests/internal-purchase-request.test.mjs tests/shopping-list.test.mjs tests/purchase-request.test.mjs tests/supplier-matching.test.mjs"
   },
   "dependencies": {
     "@tabler/icons-react": "^3.48.0",
