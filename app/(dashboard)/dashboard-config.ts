@@ -193,9 +193,9 @@ export const dashboardPortals = {
     navigation: [
       link("داشبورد", "/supplier", "نمای کلی فعالیت‌های تأمین‌کننده", "dashboard"),
       link(
-        "درخواست‌های دریافتی",
+        "درخواست‌های استعلام",
         "/supplier/requests",
-        "فقط درخواست‌های تخصیص‌یافته به تأمین‌کننده جاری را مشاهده کنید.",
+        "استعلام‌های دریافتی را بررسی کنید و پیشنهاد قیمت خود را ثبت کنید.",
         "request",
       ),
       link(
@@ -276,8 +276,8 @@ export const dashboardPortals = {
     details: [
       {
         pattern: "/supplier/requests/[id]",
-        title: "جزئیات درخواست دریافتی",
-        description: "جزئیات SupplierRequest تخصیص‌یافته به این تأمین‌کننده نمایش داده می‌شود.",
+        title: "جزئیات درخواست استعلام",
+        description: "اقلام درخواست را بررسی کنید و پیشنهاد قیمت خود را ثبت یا مرور کنید.",
         parentHref: "/supplier/requests",
       },
       {
