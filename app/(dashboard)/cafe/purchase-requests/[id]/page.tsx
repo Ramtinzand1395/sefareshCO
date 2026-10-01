@@ -1,5 +1,6 @@
 import {
   IconArrowRight,
+  IconArrowsDiff,
   IconCalendar,
   IconClipboardList,
   IconFileDescription,
@@ -17,6 +18,7 @@ import { PurchaseRequestActions } from "@/app/(dashboard)/cafe/purchase-requests
 import { PurchaseRequestStatusBadge } from "@/app/(dashboard)/cafe/purchase-requests/_components/purchase-request-status-badge";
 import {
   canCancelPurchaseRequest,
+  canCompareSuppliers,
   canCreatePurchaseRequest,
 } from "@/src/domain/cafe-access";
 import type { PurchaseRequestItemDTO } from "@/src/domain/purchase-request";
@@ -71,6 +73,8 @@ export default async function PurchaseRequestDetailPage({ params, searchParams }
 
   const canSubmit = request.status === "draft" && canCreatePurchaseRequest(identity);
   const canCancel = canCancelPurchaseRequest(identity, request);
+  const canCompare =
+    request.status === "submitted" && canCompareSuppliers(identity);
   const created = typeof query.created === "string" ? query.created : undefined;
   const successMessage =
     created === "draft" && request.status === "draft"
@@ -96,7 +100,18 @@ export default async function PurchaseRequestDetailPage({ params, searchParams }
               <div className="flex items-center gap-2"><IconClipboardList className="size-4 text-primary" aria-hidden="true" /><dt className="sr-only">تعداد اقلام</dt><dd className="font-bold text-ink">{formatPersianNumber(request.itemCount)} قلم</dd></div>
             </dl>
           </div>
-          <PurchaseRequestActions requestId={request.id} canSubmit={canSubmit} canCancel={canCancel} />
+          <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:items-end">
+            <PurchaseRequestActions requestId={request.id} canSubmit={canSubmit} canCancel={canCancel} />
+            {canCompare ? (
+              <Link
+                href={`/cafe/purchase-requests/${request.id}/compare`}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-control bg-primary px-5 text-sm font-black text-white transition hover:bg-primary-hover"
+              >
+                <IconArrowsDiff className="size-4" aria-hidden="true" />
+                مقایسه پیشنهادها
+              </Link>
+            ) : null}
+          </div>
         </div>
 
         <dl className="mt-5 grid gap-3 border-t border-line pt-5 sm:grid-cols-2 lg:grid-cols-3">

@@ -166,6 +166,12 @@ export const dashboardPortals = {
     ],
     details: [
       {
+        pattern: "/cafe/purchase-requests/[id]/compare",
+        title: "مقایسه پیشنهادهای استعلام",
+        description: "پیشنهادهای تأمین‌کنندگان را برای هر قلم مقایسه و انتخاب کنید.",
+        parentHref: "/cafe/purchase-requests",
+      },
+      {
         pattern: "/cafe/purchase-requests/[id]",
         title: "جزئیات استعلام قیمت",
         description: "اقلام، زمان‌بندی و وضعیت استعلام قیمت در این بخش نمایش داده می‌شود.",
