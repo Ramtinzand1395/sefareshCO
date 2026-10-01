@@ -78,3 +78,39 @@ export function canCancelInternalRequest(
   if (member.userId === request.requestedByUserId) return true;
   return canReviewInternalRequest(member);
 }
+
+/**
+ * Determines whether a cafe member can view the cafe's shopping list.
+ * Any active member belonging to the cafe is allowed to view the shopping list.
+ */
+export function canViewShoppingList(member: {
+  role: string;
+  permissions?: { canManageShoppingList?: boolean } | null;
+}): boolean {
+  return [
+    "owner",
+    "manager",
+    "purchase_manager",
+    "chef",
+    "accountant",
+    "employee",
+  ].includes(member.role);
+}
+
+/**
+ * Determines whether a cafe member can manage (add, edit, remove, transfer) the shopping list.
+ * - Owner always has full permission.
+ * - Explicit true in permissions grants access.
+ * - Explicit false in permissions denies access.
+ * - Operational management roles (manager, purchase_manager) have default access unless revoked.
+ * - Non-management roles (chef, employee, accountant) cannot manage without explicit permission.
+ */
+export function canManageShoppingList(member: {
+  role: string;
+  permissions?: { canManageShoppingList?: boolean } | null;
+}): boolean {
+  if (member.role === "owner") return true;
+  if (member.permissions?.canManageShoppingList === true) return true;
+  if (member.permissions?.canManageShoppingList === false) return false;
+  return ["manager", "purchase_manager"].includes(member.role);
+}
