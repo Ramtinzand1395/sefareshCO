@@ -3,16 +3,13 @@
 import {
   IconCheck,
   IconEdit,
-  IconPackage,
   IconPlus,
-  IconSearch,
   IconTrash,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import {
   useActionState,
   useCallback,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -21,14 +18,13 @@ import {
   createInternalPurchaseRequestAction,
   type InternalPurchaseRequestActionState,
 } from "@/app/actions/internal-purchase-requests";
+import {
+  CatalogProductPicker,
+  type CatalogProductOption,
+} from "@/app/(dashboard)/cafe/_components/catalog-product-picker";
 import { InternalRequestDialog } from "@/app/(dashboard)/cafe/internal-requests/_components/internal-request-dialog";
 
-export type InternalRequestCatalogOption = {
-  id: string;
-  name: string;
-  brand?: string;
-  unit: string;
-};
+export type InternalRequestCatalogOption = CatalogProductOption;
 
 type RequestDraftItem = {
   clientId: string;
@@ -156,18 +152,7 @@ function NewInternalRequestForm({
   const [composer, setComposer] = useState<ItemComposerState>(emptyComposer);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [composerError, setComposerError] = useState<string | null>(null);
-  const [catalogSearch, setCatalogSearch] = useState("");
   const titleRef = useRef<HTMLInputElement>(null);
-
-  const filteredProducts = useMemo(() => {
-    const search = catalogSearch.trim().toLocaleLowerCase("fa-IR");
-    if (!search) return products;
-    return products.filter((product) =>
-      [product.name, product.brand, product.unit]
-        .filter(Boolean)
-        .some((value) => value!.toLocaleLowerCase("fa-IR").includes(search)),
-    );
-  }, [catalogSearch, products]);
 
   const selectedProduct = products.find(
     (product) => product.id === composer.productId,
@@ -441,59 +426,16 @@ function NewInternalRequestForm({
 
               {composer.itemType === "catalog" ? (
                 <div className="mt-4">
-                  <label htmlFor="catalog-item-search" className="mb-1.5 block text-xs font-bold text-ink-muted">
-                    جستجو و انتخاب کالا
-                  </label>
-                  <div className="relative">
-                    <IconSearch className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-ink-muted" aria-hidden="true" />
-                    <input
-                      id="catalog-item-search"
-                      type="search"
-                      value={catalogSearch}
-                      onChange={(event) => setCatalogSearch(event.target.value)}
-                      disabled={isPending || products.length === 0}
-                      placeholder="نام، برند یا واحد کالا"
-                      className="h-11 w-full rounded-control border border-line bg-surface ps-10 pe-3 text-sm text-ink outline-none transition focus:border-primary disabled:opacity-60"
-                    />
-                  </div>
-
-                  <div className="mt-2 max-h-44 space-y-1.5 overflow-y-auto rounded-control border border-line bg-surface p-2" role="listbox" aria-label="کالاهای کاتالوگ">
-                    {filteredProducts.length > 0 ? (
-                      filteredProducts.map((product) => {
-                        const selected = composer.productId === product.id;
-                        return (
-                          <button
-                            key={product.id}
-                            type="button"
-                            role="option"
-                            aria-selected={selected}
-                            onClick={() => {
-                              setComposer((current) => ({ ...current, productId: product.id }));
-                              setComposerError(null);
-                            }}
-                            className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-start transition ${
-                              selected ? "bg-primary-soft text-primary" : "hover:bg-surface-subtle"
-                            }`}
-                          >
-                            <span className="min-w-0">
-                              <span className="block truncate text-xs font-black">{product.name}</span>
-                              <span className="mt-0.5 block truncate text-[11px] text-ink-muted">
-                                {[product.brand, product.unit].filter(Boolean).join(" · ")}
-                              </span>
-                            </span>
-                            {selected ? <IconCheck className="size-4 shrink-0" aria-hidden="true" /> : null}
-                          </button>
-                        );
-                      })
-                    ) : (
-                      <div className="flex flex-col items-center px-4 py-5 text-center text-xs leading-6 text-ink-muted">
-                        <IconPackage className="mb-2 size-5" aria-hidden="true" />
-                        {products.length === 0
-                          ? "در حال حاضر کالای قابل انتخابی در کاتالوگ نیست؛ از گزینه خارج از کاتالوگ استفاده کنید."
-                          : "کالایی با این عبارت پیدا نشد."}
-                      </div>
-                    )}
-                  </div>
+                  <CatalogProductPicker
+                    products={products}
+                    value={composer.productId}
+                    disabled={isPending}
+                    emptyMessage="در حال حاضر کالای قابل انتخابی در کاتالوگ نیست؛ از گزینه خارج از کاتالوگ استفاده کنید."
+                    onChange={(productId) => {
+                      setComposer((current) => ({ ...current, productId }));
+                      setComposerError(null);
+                    }}
+                  />
                 </div>
               ) : (
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">

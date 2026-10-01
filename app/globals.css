@@ -132,12 +132,28 @@ a {
   display: grid;
 }
 
+.shopping-list-table {
+  display: none;
+}
+
+.shopping-list-cards {
+  display: grid;
+}
+
 @container (min-width: 56rem) {
   .cafe-compare-table {
     display: block;
   }
 
   .cafe-compare-cards {
+    display: none;
+  }
+
+  .shopping-list-table {
+    display: block;
+  }
+
+  .shopping-list-cards {
     display: none;
   }
 }

@@ -15,8 +15,10 @@ import { notFound } from "next/navigation";
 import { CancelInternalRequest } from "@/app/(dashboard)/cafe/internal-requests/_components/cancel-internal-request";
 import { InternalRequestReview } from "@/app/(dashboard)/cafe/internal-requests/_components/internal-request-review";
 import { InternalRequestStatusBadge } from "@/app/(dashboard)/cafe/internal-requests/_components/internal-request-status-badge";
+import { TransferToShoppingList } from "@/app/(dashboard)/cafe/internal-requests/_components/transfer-to-shopping-list";
 import {
   canCancelInternalRequest,
+  canManageShoppingList,
   canReviewInternalRequest,
 } from "@/src/domain/cafe-access";
 import {
@@ -73,6 +75,10 @@ export default async function InternalRequestDetailPage({ params }: Props) {
   const pending = request.status === "pending";
   const canReview = pending && canReviewInternalRequest(identity);
   const canCancel = canCancelInternalRequest(identity, request);
+  const canTransfer =
+    (request.status === "approved" || request.status === "partially_approved") &&
+    canManageShoppingList(identity) &&
+    request.items.some((item) => item.approvedQuantity > 0);
 
   return (
     <div className="cafe-content-container space-y-6">
@@ -112,7 +118,12 @@ export default async function InternalRequestDetailPage({ params }: Props) {
             </dl>
           </div>
 
-          {canCancel ? <CancelInternalRequest requestId={request.id} /> : null}
+          {canCancel || canTransfer ? (
+            <div className="flex w-full flex-col items-stretch gap-3 sm:w-auto sm:items-end">
+              {canTransfer ? <TransferToShoppingList requestId={request.id} /> : null}
+              {canCancel ? <CancelInternalRequest requestId={request.id} /> : null}
+            </div>
+          ) : null}
         </div>
 
         {request.description ? (
