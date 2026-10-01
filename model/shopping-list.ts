@@ -116,6 +116,16 @@ const shoppingListSchema = new Schema(
       required: true,
     },
 
+    lockId: {
+      type: String,
+      default: null,
+    },
+
+    lockExpiresAt: {
+      type: Date,
+      default: null,
+    },
+
     items: {
       type: [shoppingListItemSchema],
       default: [],
