@@ -579,7 +579,7 @@ export async function findSupplierRequestByIdForSupplier(
 }
 
 /**
- * 7. Cancel pending SupplierRequests when parent PurchaseRequest is cancelled
+ * 7. Cancel pending or responded SupplierRequests when parent PurchaseRequest is cancelled
  */
 export async function cancelSupplierRequestsByPurchaseRequest(
   purchaseRequestId: string,
@@ -591,7 +591,7 @@ export async function cancelSupplierRequestsByPurchaseRequest(
   const result = await SupplierRequest.updateMany(
     {
       purchaseRequestId: new Types.ObjectId(purchaseRequestId),
-      status: "pending",
+      status: { $in: ["pending", "responded"] },
     },
     {
       $set: {
@@ -603,4 +603,73 @@ export async function cancelSupplierRequestsByPurchaseRequest(
   );
 
   return result.modifiedCount || 0;
+}
+
+/**
+ * 8. Decline a pending SupplierRequest atomically scoped to a Supplier
+ */
+export async function declineSupplierRequestById(
+  supplierId: string,
+  requestId: string,
+  userId: string,
+  reason?: string,
+): Promise<{ success: boolean; modifiedCount: number }> {
+  if (
+    !Types.ObjectId.isValid(supplierId) ||
+    !Types.ObjectId.isValid(requestId)
+  ) {
+    return { success: false, modifiedCount: 0 };
+  }
+
+  await dbConnect();
+
+  const now = new Date();
+  const result = await SupplierRequest.updateOne(
+    {
+      _id: new Types.ObjectId(requestId),
+      supplierId: new Types.ObjectId(supplierId),
+      status: "pending",
+    },
+    {
+      $set: {
+        status: "declined",
+        declinedAt: now,
+        declinedByUserId: new Types.ObjectId(userId),
+        declineReason: reason || null,
+        updatedAt: now,
+      },
+    },
+  );
+
+  return {
+    success: result.modifiedCount > 0,
+    modifiedCount: result.modifiedCount,
+  };
+}
+
+/**
+ * 9. Atomically mark a pending SupplierRequest as responded
+ */
+export async function markSupplierRequestResponded(
+  requestId: string,
+  respondedAt: Date = new Date(),
+): Promise<boolean> {
+  if (!Types.ObjectId.isValid(requestId)) return false;
+  await dbConnect();
+
+  const result = await SupplierRequest.updateOne(
+    {
+      _id: new Types.ObjectId(requestId),
+      status: "pending",
+    },
+    {
+      $set: {
+        status: "responded",
+        respondedAt,
+        updatedAt: respondedAt,
+      },
+    },
+  );
+
+  return result.modifiedCount > 0;
 }

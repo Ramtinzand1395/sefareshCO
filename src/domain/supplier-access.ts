@@ -40,3 +40,21 @@ export function canViewSupplierRequests(member: {
   if (member.permissions?.canViewRequests === false) return false;
   return ["manager", "sales"].includes(member.role);
 }
+
+/**
+ * Determines whether a supplier member can respond to, edit response for, or decline an RFQ (SupplierRequest).
+ * - Owner always has full permission.
+ * - Explicit true in permissions grants access.
+ * - Explicit false in permissions denies access.
+ * - Operational commercial roles (manager, sales) have default access unless revoked.
+ * - Non-commercial roles (warehouse, accountant, employee) cannot respond without explicit permission.
+ */
+export function canRespondToSupplierRequests(member: {
+  role: string;
+  permissions?: { canRespondToRequests?: boolean } | null;
+}): boolean {
+  if (member.role === "owner") return true;
+  if (member.permissions?.canRespondToRequests === true) return true;
+  if (member.permissions?.canRespondToRequests === false) return false;
+  return ["manager", "sales"].includes(member.role);
+}

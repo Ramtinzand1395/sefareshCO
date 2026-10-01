@@ -2,7 +2,12 @@ import mongoose from "mongoose";
 
 const { Schema, model, models } = mongoose;
 
-export const supplierRequestStatusValues = ["pending", "cancelled"] as const;
+export const supplierRequestStatusValues = [
+  "pending",
+  "responded",
+  "declined",
+  "cancelled",
+] as const;
 export type SupplierRequestStatus =
   (typeof supplierRequestStatusValues)[number];
 
@@ -107,6 +112,25 @@ const supplierRequestSchema = new Schema(
       default: Date.now,
     },
     cancelledAt: {
+      type: Date,
+      default: null,
+    },
+    declinedAt: {
+      type: Date,
+      default: null,
+    },
+    declinedByUserId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    declineReason: {
+      type: String,
+      trim: true,
+      maxlength: 300,
+      default: null,
+    },
+    respondedAt: {
       type: Date,
       default: null,
     },
