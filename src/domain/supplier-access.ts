@@ -94,3 +94,21 @@ export function canManageSupplierOrders(member: {
   if (member.permissions?.canUpdateOrders === false) return false;
   return ["manager", "sales", "warehouse"].includes(member.role);
 }
+
+/**
+ * Determines whether a supplier member can view financials, payables, and settlements.
+ * - Owner always has full permission.
+ * - Explicit true in permissions grants access.
+ * - Explicit false in permissions denies access.
+ * - Financial & commercial roles (manager, accountant, sales) have default access unless revoked.
+ * - Warehouse / employee roles cannot view financials without explicit permission.
+ */
+export function canViewSupplierFinancials(member: {
+  role: string;
+  permissions?: { canViewFinancials?: boolean } | null;
+}): boolean {
+  if (member.role === "owner") return true;
+  if (member.permissions?.canViewFinancials === true) return true;
+  if (member.permissions?.canViewFinancials === false) return false;
+  return ["manager", "accountant", "sales"].includes(member.role);
+}

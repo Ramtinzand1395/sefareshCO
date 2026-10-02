@@ -55,6 +55,7 @@ import {
   findComparisonDataBatch,
   finalizeSelectionInRepo,
 } from "@/src/repositories/purchase-request-selection-repository";
+import { syncPayableOnOrderDelivered } from "@/src/services/finance-service";
 
 // ---------------------------------------------------------------------------
 // Domain Errors
@@ -957,6 +958,13 @@ export async function markSupplierOrderDelivered(
     throw new OrderInvalidStatusError(
       "وضعیت سفارش تغییر یافته و امکان انجام عملیات وجود ندارد",
     );
+  }
+
+  // Finance Integration: Sync payable eligibility idempotently and safely
+  try {
+    await syncPayableOnOrderDelivered(orderId);
+  } catch (financeErr) {
+    console.error("Order delivery finance sync failed (retryable):", financeErr);
   }
 
   const refreshed = await findOrderByIdForSupplier(identity.supplierId, orderId);

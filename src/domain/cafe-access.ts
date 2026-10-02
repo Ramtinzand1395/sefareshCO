@@ -255,3 +255,54 @@ export function canCancelCafeOrder(
   if (member.userId === order.createdByUserId) return true;
   return canCreateOrder(member);
 }
+
+/**
+ * Determines whether a cafe member can view payments for the cafe's orders.
+ * Any active member belonging to the cafe is allowed to view payment statuses unless explicitly denied.
+ */
+export function canViewCafePayments(member: {
+  role: string;
+  permissions?: { canViewCosts?: boolean; [key: string]: unknown } | null;
+}): boolean {
+  if (member.permissions?.canViewCosts === false) return false;
+  return [
+    "owner",
+    "manager",
+    "purchase_manager",
+    "accountant",
+    "chef",
+    "employee",
+  ].includes(member.role);
+}
+
+/**
+ * Determines whether a cafe member can initiate a payment attempt for a cafe order.
+ * - Owner always has full permission.
+ * - Explicit true in permissions grants access.
+ * - Explicit false in permissions denies access.
+ * - Commercial/managerial roles (manager, purchase_manager, accountant) have default access.
+ * - Non-commercial roles (chef, employee) cannot initiate payments without explicit permission.
+ */
+export function canInitiateCafePayment(member: {
+  role: string;
+  permissions?: {
+    canCreateOrder?: boolean;
+    canInitiatePayment?: boolean;
+    [key: string]: unknown;
+  } | null;
+}): boolean {
+  if (member.role === "owner") return true;
+  if (
+    member.permissions?.canInitiatePayment === true ||
+    member.permissions?.canCreateOrder === true
+  ) {
+    return true;
+  }
+  if (
+    member.permissions?.canInitiatePayment === false ||
+    member.permissions?.canCreateOrder === false
+  ) {
+    return false;
+  }
+  return ["manager", "purchase_manager", "accountant"].includes(member.role);
+}
