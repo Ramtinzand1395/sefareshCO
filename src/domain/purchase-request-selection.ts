@@ -101,6 +101,9 @@ export type PurchaseRequestSelectionDTO = {
   items: PurchaseRequestSelectionItemDTO[];
   supplierGroups: PurchaseRequestSelectionSupplierGroupDTO[];
   totals: PurchaseRequestSelectionTotalsDTO;
+  isFinalized?: boolean;
+  finalizedAt?: string;
+  finalizedByUserId?: string;
   createdAt: string;
   updatedAt: string;
 };

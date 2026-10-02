@@ -383,6 +383,12 @@ export async function savePurchaseRequestSelection(
     batchData;
 
   // 2. Enforce PurchaseRequest lifecycle preconditions
+  if (batchData.existingSelection?.isFinalized) {
+    throw new PurchaseRequestSelectionInvalidStatusError(
+      "امکان ویرایش انتخابی که نهایی و تبدیل به سفارش شده است وجود ندارد",
+    );
+  }
+
   if (rfqDoc.status === "cancelled") {
     throw new PurchaseRequestSelectionInvalidStatusError(
       "امکان ثبت یا تغییر انتخاب برای استعلام قیمت لغوشده وجود ندارد",
@@ -443,6 +449,12 @@ export async function savePurchaseRequestSelection(
       supplierGroups: calcResult.supplierGroups,
       totals: calcResult.totals,
     });
+
+    if (saveResult.isFinalized) {
+      throw new PurchaseRequestSelectionInvalidStatusError(
+        "امکان ویرایش انتخابی که نهایی و تبدیل به سفارش شده است وجود ندارد",
+      );
+    }
 
     if (saveResult.conflict) {
       throw new PurchaseRequestSelectionConflictError();
@@ -599,6 +611,12 @@ export async function savePurchaseRequestSelection(
     supplierGroups: calcResult.supplierGroups,
     totals: calcResult.totals,
   });
+
+  if (saveResult.isFinalized) {
+    throw new PurchaseRequestSelectionInvalidStatusError(
+      "امکان ویرایش انتخابی که نهایی و تبدیل به سفارش شده است وجود ندارد",
+    );
+  }
 
   if (saveResult.conflict) {
     throw new PurchaseRequestSelectionConflictError();
@@ -761,6 +779,13 @@ function formatSelectionDTO(
       shippingTotal: selectionDoc.totals.shippingTotal,
       estimatedTotal: selectionDoc.totals.estimatedTotal,
     },
+    isFinalized: Boolean(selectionDoc.isFinalized),
+    finalizedAt: selectionDoc.finalizedAt
+      ? new Date(selectionDoc.finalizedAt).toISOString()
+      : undefined,
+    finalizedByUserId: selectionDoc.finalizedByUserId
+      ? selectionDoc.finalizedByUserId.toString()
+      : undefined,
     createdAt: (selectionDoc.createdAt || new Date()).toISOString(),
     updatedAt: (selectionDoc.updatedAt || new Date()).toISOString(),
   };

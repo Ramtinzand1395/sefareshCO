@@ -58,3 +58,39 @@ export function canRespondToSupplierRequests(member: {
   if (member.permissions?.canRespondToRequests === false) return false;
   return ["manager", "sales"].includes(member.role);
 }
+
+/**
+ * Determines whether a supplier member can view incoming orders.
+ * - Owner always has full permission.
+ * - Explicit true in permissions grants access.
+ * - Explicit false in permissions denies access.
+ * - Operational roles (manager, sales, warehouse) have default access unless revoked.
+ * - Non-commercial/non-operational roles (accountant, employee) cannot view without explicit permission.
+ */
+export function canViewSupplierOrders(member: {
+  role: string;
+  permissions?: { canViewOrders?: boolean } | null;
+}): boolean {
+  if (member.role === "owner") return true;
+  if (member.permissions?.canViewOrders === true) return true;
+  if (member.permissions?.canViewOrders === false) return false;
+  return ["manager", "sales", "warehouse"].includes(member.role);
+}
+
+/**
+ * Determines whether a supplier member can update order status (confirm, reject, preparing, shipped, delivered).
+ * - Owner always has full permission.
+ * - Explicit true in permissions grants access.
+ * - Explicit false in permissions denies access.
+ * - Operational commercial and warehouse roles (manager, sales, warehouse) have default access unless revoked.
+ * - Non-operational roles (accountant, employee) cannot manage orders without explicit permission.
+ */
+export function canManageSupplierOrders(member: {
+  role: string;
+  permissions?: { canUpdateOrders?: boolean } | null;
+}): boolean {
+  if (member.role === "owner") return true;
+  if (member.permissions?.canUpdateOrders === true) return true;
+  if (member.permissions?.canUpdateOrders === false) return false;
+  return ["manager", "sales", "warehouse"].includes(member.role);
+}

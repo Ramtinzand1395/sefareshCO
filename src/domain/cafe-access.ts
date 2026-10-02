@@ -194,3 +194,64 @@ export function canCompareSuppliers(member: {
   if (member.permissions?.canCompareSuppliers === false) return false;
   return ["manager", "purchase_manager"].includes(member.role);
 }
+
+/**
+ * Determines whether a cafe member can confirm purchases and create orders from RFQ selections.
+ * - Owner always has full permission.
+ * - Explicit true in permissions grants access.
+ * - Explicit false in permissions denies access.
+ * - Operational management roles (manager, purchase_manager) have default access unless revoked.
+ * - Non-management roles (chef, employee, accountant) cannot create orders without explicit permission.
+ */
+export function canCreateOrder(member: {
+  role: string;
+  permissions?: { canCreateOrder?: boolean } | null;
+}): boolean {
+  if (member.role === "owner") return true;
+  if (member.permissions?.canCreateOrder === true) return true;
+  if (member.permissions?.canCreateOrder === false) return false;
+  return ["manager", "purchase_manager"].includes(member.role);
+}
+
+/**
+ * Determines whether a cafe member can view the cafe's orders.
+ * - Any active cafe member can view orders unless explicitly revoked.
+ */
+export function canViewCafeOrders(member: {
+  role: string;
+  permissions?: { canViewOrders?: boolean } | null;
+}): boolean {
+  if (member.permissions?.canViewOrders === false) return false;
+  return [
+    "owner",
+    "manager",
+    "purchase_manager",
+    "chef",
+    "accountant",
+    "employee",
+  ].includes(member.role);
+}
+
+/**
+ * Determines whether a cafe member can cancel an order placed by the cafe.
+ * - Only orders in 'placed' status can be cancelled by the cafe.
+ * - Owner can cancel any placed order.
+ * - Creator of the order can cancel their own placed order.
+ * - Members with canCreateOrder permission can cancel placed orders.
+ */
+export function canCancelCafeOrder(
+  member: {
+    userId: string;
+    role: string;
+    permissions?: { canCreateOrder?: boolean } | null;
+  },
+  order: {
+    createdByUserId: string;
+    status?: string;
+  },
+): boolean {
+  if (order.status && order.status !== "placed") return false;
+  if (member.role === "owner") return true;
+  if (member.userId === order.createdByUserId) return true;
+  return canCreateOrder(member);
+}

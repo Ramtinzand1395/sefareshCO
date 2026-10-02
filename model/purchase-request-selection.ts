@@ -168,6 +168,19 @@ const purchaseRequestSelectionSchema = new Schema(
       type: selectionTotalsSchema,
       required: true,
     },
+    isFinalized: {
+      type: Boolean,
+      default: false,
+    },
+    finalizedAt: {
+      type: Date,
+      default: null,
+    },
+    finalizedByUserId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   {
     timestamps: true,

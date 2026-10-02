@@ -26,6 +26,7 @@ export type SaveSelectionRepoInput = {
 export type SaveSelectionRepoResult = {
   success: boolean;
   conflict?: boolean;
+  isFinalized?: boolean;
   currentVersion?: number;
   id?: string;
   version?: number;
@@ -198,6 +199,13 @@ export async function saveSelectionInRepo(
   }).lean();
 
   if (existing) {
+    if (existing.isFinalized) {
+      return {
+        success: false,
+        isFinalized: true,
+      };
+    }
+
     // Concurrency check: if client provided expectedVersion, ensure it matches
     if (
       input.expectedVersion !== undefined &&
@@ -297,4 +305,34 @@ export async function saveSelectionInRepo(
       throw err;
     }
   }
+}
+
+/**
+ * 4. Atomically mark selection as finalized when converted to orders.
+ */
+export async function finalizeSelectionInRepo(
+  selectionId: string,
+  userId: string,
+): Promise<boolean> {
+  if (!Types.ObjectId.isValid(selectionId) || !Types.ObjectId.isValid(userId)) {
+    return false;
+  }
+
+  await dbConnect();
+  const res = await PurchaseRequestSelection.updateOne(
+    {
+      _id: new Types.ObjectId(selectionId),
+      isFinalized: false,
+    },
+    {
+      $set: {
+        isFinalized: true,
+        finalizedAt: new Date(),
+        finalizedByUserId: new Types.ObjectId(userId),
+        updatedAt: new Date(),
+      },
+    },
+  );
+
+  return res.modifiedCount > 0;
 }

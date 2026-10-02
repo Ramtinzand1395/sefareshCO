@@ -19,6 +19,13 @@ export async function resolve(specifier, context, nextResolve) {
     };
   }
 
+  if (specifier === "next/cache") {
+    return {
+      url: "data:text/javascript,export function revalidatePath() {}; export function revalidateTag() {};",
+      shortCircuit: true,
+    };
+  }
+
   if (specifier === "@/auth") {
     return {
       url: "data:text/javascript,export const auth = async () => null; export default {};",
