@@ -103,7 +103,7 @@ export const dashboardPortals = {
       ),
       link("سبد خرید", "/cafe/cart", "اقلام آماده سفارش کافه را مرور کنید.", "cart"),
       link(
-        "سفارش‌های من",
+        "سفارش‌ها",
         "/cafe/orders",
         "سفارش‌های ثبت‌شده برای این کافه را پیگیری کنید.",
         "orders",
@@ -217,7 +217,7 @@ export const dashboardPortals = {
         "products",
       ),
       link(
-        "سفارش‌ها",
+        "سفارش‌های دریافتی",
         "/supplier/orders",
         "فقط سفارش‌های متعلق به تأمین‌کننده جاری را پیگیری کنید.",
         "orders",

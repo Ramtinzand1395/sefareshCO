@@ -5,14 +5,16 @@ import {
   IconClipboardCheck,
   IconHash,
   IconListDetails,
+  IconRefresh,
 } from "@tabler/icons-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
 import { PurchaseRequestComparisonWorkspace } from "@/app/(dashboard)/cafe/purchase-requests/[id]/compare/purchase-request-comparison-workspace";
+import { ConfirmPurchase } from "@/app/(dashboard)/cafe/purchase-requests/[id]/compare/confirm-purchase";
 import { PurchaseRequestStatusBadge } from "@/app/(dashboard)/cafe/purchase-requests/_components/purchase-request-status-badge";
 import { getPurchaseRequestComparisonAction } from "@/app/actions/purchase-request-selections";
-import { canCompareSuppliers } from "@/src/domain/cafe-access";
+import { canCompareSuppliers, canCreateOrder } from "@/src/domain/cafe-access";
 import { formatPersianDate, formatPersianNumber } from "@/src/lib/persian-format";
 import { requireCafeMemberAccess } from "@/src/services/purchase-request-selection-service";
 
@@ -70,8 +72,23 @@ export default async function PurchaseRequestComparisonPage({ params }: Props) {
   const comparison = result.data;
   const selection = comparison.currentSelection;
   const editable =
-    comparison.rfqStatus === "submitted" && canCompareSuppliers(identity);
+    comparison.rfqStatus === "submitted" &&
+    !selection?.isFinalized &&
+    canCompareSuppliers(identity);
   const selectedCount = selection?.totals.selectedItemCount ?? 0;
+  const hasStaleSelection = Boolean(
+    selection?.items.some((item) =>
+      item.selections.some((selected) => selected.responseModifiedAfterSelection),
+    ),
+  );
+  const canConfirmPurchase = Boolean(
+    selection &&
+      selectedCount > 0 &&
+      comparison.rfqStatus === "submitted" &&
+      !selection.isFinalized &&
+      !hasStaleSelection &&
+      canCreateOrder(identity),
+  );
 
   return (
     <div className="cafe-content-container space-y-6 pb-24 xl:pb-0">
@@ -150,7 +167,7 @@ export default async function PurchaseRequestComparisonPage({ params }: Props) {
             <p className="mt-1 text-xs leading-6">پس از ثبت و ارسال استعلام، مقایسه و انتخاب پیشنهادها فعال می‌شود.</p>
           </div>
         </section>
-      ) : !editable ? (
+      ) : !editable && !selection?.isFinalized ? (
         <section className="flex items-start gap-3 rounded-card border border-line bg-surface p-4 text-ink-muted shadow-card">
           <IconAlertCircle className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
           <div>
@@ -158,6 +175,32 @@ export default async function PurchaseRequestComparisonPage({ params }: Props) {
             <p className="mt-1 text-xs leading-6">شما می‌توانید پیشنهادها و انتخاب فعلی را ببینید، اما دسترسی تغییر انتخاب تأمین‌کنندگان را ندارید.</p>
           </div>
         </section>
+      ) : null}
+
+      {selection?.isFinalized ? (
+        <section className="flex flex-col gap-4 rounded-card border border-success/25 bg-success-soft p-4 shadow-card sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-sm font-black text-success">این انتخاب به سفارش تبدیل شده است.</h2>
+            <p className="mt-1 text-xs leading-6 text-ink-muted">انتخاب‌های نهایی فقط برای مشاهده در دسترس‌اند و دیگر قابل ویرایش نیستند.</p>
+          </div>
+          <Link href="/cafe/orders" className="inline-flex min-h-11 w-full items-center justify-center rounded-control bg-success px-5 text-sm font-black text-white sm:w-auto">مشاهده سفارش‌ها</Link>
+        </section>
+      ) : hasStaleSelection ? (
+        <section className="flex flex-col gap-4 rounded-card border border-warning/25 bg-warning-soft p-4 shadow-card sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-sm font-black text-warning">یکی از پیشنهادهای انتخاب‌شده تغییر کرده است.</h2>
+            <p className="mt-1 text-xs leading-6 text-ink-muted">پیش از ثبت سفارش، پیشنهادهای تغییرکرده را بررسی و انتخاب‌ها را دوباره ذخیره کنید.</p>
+          </div>
+          <Link href={`/cafe/purchase-requests/${comparison.purchaseRequestId}/compare`} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-control border border-warning/30 bg-surface px-4 text-sm font-black text-warning sm:w-auto">
+            <IconRefresh className="size-4" aria-hidden="true" />
+            بازبینی پیشنهادها
+          </Link>
+        </section>
+      ) : canConfirmPurchase && selection ? (
+        <ConfirmPurchase
+          purchaseRequestId={comparison.purchaseRequestId}
+          selection={selection}
+        />
       ) : null}
 
       <PurchaseRequestComparisonWorkspace
