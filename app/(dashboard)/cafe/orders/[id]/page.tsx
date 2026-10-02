@@ -19,8 +19,12 @@ import {
   OrderTimeline,
   safeOrderError,
 } from "@/app/(dashboard)/_components/order-ui";
+import { FinanceErrorState } from "@/app/(dashboard)/_components/finance-ui";
 import { CancelOrderAction } from "@/app/(dashboard)/cafe/orders/[id]/cancel-order-action";
+import { OrderPaymentCard } from "@/app/(dashboard)/cafe/orders/[id]/order-payment-card";
+import { getCafeOrderPaymentAction } from "@/app/actions/finance";
 import { getCafeOrderDetailAction } from "@/app/actions/orders";
+import { isOrderPayable } from "@/src/domain/finance";
 import { formatPersianDateTime } from "@/src/lib/persian-format";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +37,10 @@ type Props = { params: Promise<{ id: string }> };
 
 export default async function CafeOrderDetailPage({ params }: Props) {
   const { id } = await params;
-  const result = await getCafeOrderDetailAction(id);
+  const [result, paymentResult] = await Promise.all([
+    getCafeOrderDetailAction(id),
+    getCafeOrderPaymentAction(id),
+  ]);
   if (!result.ok || !result.data) {
     if (result.error?.includes("یافت نشد") || result.error?.includes("شناسه سفارش معتبر نیست")) notFound();
     return <OrderDetailLoadError message={result.error} />;
@@ -89,6 +96,16 @@ export default async function CafeOrderDetailPage({ params }: Props) {
             <div className="mt-3"><OrderStatusBadge status={order.status} /></div>
           </section>
           <OrderFinancialSummary financials={order.financials} />
+          {paymentResult.ok && paymentResult.data ? (
+            <OrderPaymentCard
+              initialPayment={paymentResult.data}
+              canPayOrder={isOrderPayable(order.status)}
+              orderStatus={order.status}
+              supplierName={order.supplier.businessName}
+            />
+          ) : (
+            <FinanceErrorState message={paymentResult.error} compact />
+          )}
           <CancelOrderAction orderId={order.id} canCancel={order.allowedActions.canCancel} />
         </aside>
       </div>

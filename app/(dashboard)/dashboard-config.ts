@@ -126,12 +126,6 @@ export const dashboardPortals = {
         "درخواست‌های خرید داخلی اعضای کافه را بررسی کنید.",
         "internal-request",
       ),
-      link(
-        "پرداخت‌ها",
-        "/cafe/payments",
-        "وضعیت پرداخت‌های متعلق به این کافه را مشاهده کنید.",
-        "payments",
-      ),
       {
         type: "group",
         label: "تنظیمات",
@@ -222,31 +216,12 @@ export const dashboardPortals = {
         "فقط سفارش‌های متعلق به تأمین‌کننده جاری را پیگیری کنید.",
         "orders",
       ),
-      {
-        type: "group",
-        label: "مالی",
-        icon: "finance",
-        children: [
-          link(
-            "خلاصه مالی",
-            "/supplier/finance",
-            "نمای کلی وضعیت مالی تأمین‌کننده را مشاهده کنید.",
-            "finance",
-          ),
-          link(
-            "تراکنش‌ها",
-            "/supplier/finance/transactions",
-            "تراکنش‌های متعلق به تأمین‌کننده را مرور کنید.",
-            "transactions",
-          ),
-          link(
-            "تسویه‌ها",
-            "/supplier/finance/settlements",
-            "سوابق و وضعیت تسویه‌های تأمین‌کننده را پیگیری کنید.",
-            "settlements",
-          ),
-        ],
-      },
+      link(
+        "امور مالی",
+        "/supplier/finance",
+        "مطالبات و سوابق تسویه‌های تأمین‌کننده را مشاهده کنید.",
+        "finance",
+      ),
       link(
         "پروفایل کسب‌وکار",
         "/supplier/business-profile",
@@ -336,26 +311,12 @@ export const dashboardPortals = {
         "internal-request",
       ),
       link("سفارش‌ها", "/admin/orders", "سفارش‌های Marketplace را پایش کنید.", "orders"),
-      {
-        type: "group",
-        label: "مالی",
-        icon: "finance",
-        children: [
-          link("پرداخت‌ها", "/admin/finance/payments", "پرداخت‌های پلتفرم را مشاهده کنید.", "payments"),
-          link(
-            "تراکنش‌ها",
-            "/admin/finance/transactions",
-            "تراکنش‌های مالی Marketplace را مرور کنید.",
-            "transactions",
-          ),
-          link(
-            "تسویه‌ها",
-            "/admin/finance/settlements",
-            "تسویه‌های تأمین‌کنندگان را مدیریت کنید.",
-            "settlements",
-          ),
-        ],
-      },
+      link(
+        "امور مالی",
+        "/admin/finance",
+        "پرداخت‌ها و تسویه‌های تأمین‌کنندگان را مدیریت کنید.",
+        "finance",
+      ),
       link("گزارش‌ها", "/admin/reports", "گزارش‌های مدیریتی Marketplace را مشاهده کنید.", "reports"),
       {
         type: "group",
